@@ -173,15 +173,18 @@ export default function SchuleDetail() {
             {/* Schülerzahlentwicklung */}
             {history.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
-                  Schülerzahlen-Entwicklung
-                </h2>
+                <div className="flex items-baseline justify-between mb-4">
+                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+                    Schülerzahlen-Verlauf
+                  </h2>
+                  <span className="text-xs text-slate-400">SJ {history[0]?.schuljahr} (monatlich)</span>
+                </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={history} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="schuljahr" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip formatter={(v, n) => [v, n]} labelFormatter={l => `Monat: ${l}`} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Line type="monotone" dataKey="gesamt" name="Gesamt" stroke="#006892" strokeWidth={2} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="maennlich" name="Männlich" stroke="#00303F" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" />
@@ -200,9 +203,9 @@ export default function SchuleDetail() {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={history} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="schuljahr" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
+                    <Tooltip labelFormatter={l => `Monat: ${l}`} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Bar dataKey="spg_lernen" name="Lernen" stackId="a" fill="#f59e0b" />
                     <Bar dataKey="spg_emotional" name="Emotional/Sozial" stackId="a" fill="#ef4444" />

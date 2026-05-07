@@ -179,20 +179,31 @@ def _build_schule_summary(schule, zahlen_fuer_schule):
     }
 
 
+MONAT_ORDER = ["August", "September", "Oktober", "November", "Dezember",
+               "Januar", "Februar", "März", "April", "Mai"]
+
 def _build_zahlen_history(zahlen_fuer_schule):
-    """Zeitreihe der Schülerzahlen für Charts."""
-    records = [z for z in zahlen_fuer_schule if z.get("Schuljahr")]
-    records.sort(key=lambda z: z["Schuljahr"][0]["Jahr"])
+    """Monatsverlauf der Schülerzahlen für Charts (Daten liegen monatsweise vor)."""
+    records = [z for z in zahlen_fuer_schule if z.get("Schulmonat")]
+
+    def sort_key(z):
+        monat = z["Schulmonat"][0]["Name"] if z.get("Schulmonat") else ""
+        return MONAT_ORDER.index(monat) if monat in MONAT_ORDER else 99
+
+    records.sort(key=sort_key)
+    j = records[0]["Schuljahr"][0]["Jahr"] if records and records[0].get("Schuljahr") else 0
+    schuljahr_label = f"{j}/{j+1}" if j else "–"
+
     result = []
     for z in records:
-        j = z["Schuljahr"][0]["Jahr"]
+        monat = z["Schulmonat"][0]["Name"] if z.get("Schulmonat") else "?"
         gesamt = _parse_int(z.get("Gesamt"))
         if gesamt is None:
             continue
-        spg_fields = ["SPG_koerperlich", "SPG_geistig", "SPG_sehen", "SPG_hoeren",
-                      "SPG_lernen", "SPG_emotional", "SPG_sprachlich", "SPG_begabt"]
         result.append({
-            "schuljahr": f"{j}/{j+1}",
+            "schuljahr": schuljahr_label,
+            "monat": monat,
+            "label": monat[:3],  # Kurzname für X-Achse
             "jahr": j,
             "gesamt": gesamt,
             "maennlich": _parse_int(z.get("maennlich")),
