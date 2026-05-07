@@ -151,44 +151,49 @@ def fetch_all():
     schulen = schulen_resp.get("Schulen", [])
     print(f"  {len(schulen)} Schulen gefunden.")
 
-    # Schuljahre
-    print("Lade Schuljahre...")
+    # Verfügbare Jahre
     jahre_resp = ks.post("app.php/Schuelerzahlen/jahre", {"start": 0, "limit": 50})
     jahre = jahre_resp.get("Jahre", [])
+    alle_jahre = sorted([j["Jahr"] for j in jahre])
+    print(f"  Verfügbare Jahre: {alle_jahre[0]}–{alle_jahre[-1]}")
 
     # Schulmonate
     monate_resp = ks.post("app.php/Schulmonate/read", {"start": 0, "limit": 20})
     monate = monate_resp.get("Schulmonate", [])
 
-    # Schuelerzahlen je Schule
-    print("Lade Schuelerzahlen (alle Schulen, alle Jahre)...")
+    # Schuelerzahlen: pro Jahr alle Schulen via Stiftung-Filter (historischer Pfad)
+    print("Lade Schuelerzahlen (alle Jahre, August-Datensatz je Schule)...")
     preload = json.dumps([
-        {"property": "Schule", "value": True},
+        {"property": "Schule",    "value": True},
         {"property": "Schuljahr", "value": True},
-        {"property": "Schulmonat", "value": True},
+        {"property": "Schulmonat","value": True},
     ])
     all_zahlen = []
-    for i, s in enumerate(schulen, 1):
-        filt = json.dumps([{"property": "Schule", "value": s["id"]}])
-        resp = ks.post("app.php/Schuelerzahlen/read", {
-            "start": 0, "limit": 500,
-            "filter": filt,
-            "preload": preload,
-        })
-        zahlen = resp.get("Schuelerzahlen", [])
-        all_zahlen.extend(zahlen)
-        print(f"  [{i:2d}/{len(schulen)}] {s['Name']}: {len(zahlen)} Datensätze")
-
-    # Schuljahre mit Sollzahlen
-    schuljahre_resp = ks.post("app.php/Schuljahre/read", {"start": 0, "limit": 50})
-    schuljahre = schuljahre_resp.get("Schuljahre", [])
+    # Pro Jahr alle Schulen via Stiftung-Filter abrufen (August = Schuljahresbeginn)
+    all_zahlen = []
+    for jahr in alle_jahre:
+        for stiftung in ["ESM", "KOS"]:
+            filt = json.dumps([
+                {"property": "Stiftung",   "value": stiftung},
+                {"property": "Jahr",       "value": jahr},
+                {"property": "Schulmonat", "value": 1},   # 1 = August
+            ])
+            resp = ks.post("app.php/Schuelerzahlen/read", {
+                "start": 0, "limit": 100,
+                "filter": filt,
+                "preload": preload,
+            })
+            zahlen = resp.get("Schuelerzahlen", [])
+            all_zahlen.extend(zahlen)
+        filled = sum(1 for z in all_zahlen if z.get("Gesamt") not in ("", None)
+                     and (z.get("Schuljahr") or [{}])[0].get("Jahr") == jahr)
+        print(f"  {jahr}/{jahr+1}: {filled} Schulen mit Daten")
 
     os.makedirs("data", exist_ok=True)
     result = {
         "fetched_at": datetime.now().isoformat(),
         "schulen": schulen,
         "schuelerzahlen": all_zahlen,
-        "schuljahre": schuljahre,
         "jahre": jahre,
         "monate": monate,
     }
@@ -198,8 +203,7 @@ def fetch_all():
 
     print(f"\nFertig! Gespeichert: {out_path}")
     print(f"  Schulen:        {len(schulen)}")
-    print(f"  Schuelerzahlen: {len(all_zahlen)}")
-    print(f"  Schuljahre:     {len(schuljahre)}")
+    print(f"  Schuelerzahlen: {len(all_zahlen)} (1 August-Datensatz je Schule und Jahr)")
 
 
 if __name__ == "__main__":

@@ -179,31 +179,19 @@ def _build_schule_summary(schule, zahlen_fuer_schule):
     }
 
 
-MONAT_ORDER = ["August", "September", "Oktober", "November", "Dezember",
-               "Januar", "Februar", "März", "April", "Mai"]
-
 def _build_zahlen_history(zahlen_fuer_schule):
-    """Monatsverlauf der Schülerzahlen für Charts (Daten liegen monatsweise vor)."""
-    records = [z for z in zahlen_fuer_schule if z.get("Schulmonat")]
-
-    def sort_key(z):
-        monat = z["Schulmonat"][0]["Name"] if z.get("Schulmonat") else ""
-        return MONAT_ORDER.index(monat) if monat in MONAT_ORDER else 99
-
-    records.sort(key=sort_key)
-    j = records[0]["Schuljahr"][0]["Jahr"] if records and records[0].get("Schuljahr") else 0
-    schuljahr_label = f"{j}/{j+1}" if j else "–"
-
+    """Jahresverlauf der Schülerzahlen für Charts (1 August-Datensatz je Jahr)."""
+    records = [z for z in zahlen_fuer_schule if z.get("Schuljahr")]
+    records.sort(key=lambda z: z["Schuljahr"][0]["Jahr"])
     result = []
     for z in records:
-        monat = z["Schulmonat"][0]["Name"] if z.get("Schulmonat") else "?"
+        j = z["Schuljahr"][0]["Jahr"]
         gesamt = _parse_int(z.get("Gesamt"))
         if gesamt is None:
             continue
         result.append({
-            "schuljahr": schuljahr_label,
-            "monat": monat,
-            "label": monat[:3],  # Kurzname für X-Achse
+            "schuljahr": f"{j}/{j+1}",
+            "label": f"{j}/{str(j+1)[2:]}",  # z.B. "2023/24"
             "jahr": j,
             "gesamt": gesamt,
             "maennlich": _parse_int(z.get("maennlich")),
