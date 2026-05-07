@@ -14,7 +14,7 @@ Start-Sleep -Seconds 2
 
 Write-Host "  Starte Frontend..." -ForegroundColor Gray
 
-$frontend = Start-Process npm -ArgumentList "run", "dev" `
+$frontend = Start-Process cmd -ArgumentList "/c npm run dev" `
     -WorkingDirectory "$root\frontend" -PassThru -NoNewWindow
 
 Start-Sleep -Seconds 3
