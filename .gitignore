@@ -24,5 +24,4 @@ frontend/.vite/
 Thumbs.db
 
 # IDE
-.vscode/settings.json
 .idea/
