@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
+@theme {
+  --color-ekmd-primary: #006892;
+  --color-ekmd-dark:    #00303F;
+  --color-ekmd-light:   #e6f3f8;
+  --color-ekmd-accent:  #0085b8;
+}
+
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f5f8fa;
 }
 
 #root {

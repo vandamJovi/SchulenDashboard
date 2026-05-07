@@ -1,19 +1,21 @@
-export default function KpiCard({ label, value, sub, icon: Icon, color = 'blue' }) {
-  const colors = {
-    blue:   'bg-blue-50 text-blue-700 border-blue-100',
-    green:  'bg-green-50 text-green-700 border-green-100',
-    amber:  'bg-amber-50 text-amber-700 border-amber-100',
-    violet: 'bg-violet-50 text-violet-700 border-violet-100',
+export default function KpiCard({ label, value, sub, icon: Icon, variant = 'primary' }) {
+  const variants = {
+    primary: 'bg-[#006892] text-white',
+    dark:    'bg-[#00303F] text-white',
+    light:   'bg-[#e6f3f8] text-[#006892]',
+    white:   'bg-white text-[#006892] border border-[#cce3ee]',
   }
+  const iconColor = (variant === 'light' || variant === 'white') ? 'text-[#006892]' : 'text-white/70'
+
   return (
-    <div className={`rounded-xl border p-5 flex items-start gap-4 ${colors[color]}`}>
+    <div className={`rounded-xl p-5 flex items-start gap-4 shadow-sm ${variants[variant]}`}>
       {Icon && (
-        <div className="mt-0.5 shrink-0">
+        <div className={`mt-0.5 shrink-0 ${iconColor}`}>
           <Icon size={22} />
         </div>
       )}
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide opacity-70">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider opacity-70">{label}</p>
         <p className="text-3xl font-bold mt-1">{value ?? '–'}</p>
         {sub && <p className="text-xs mt-0.5 opacity-60">{sub}</p>}
       </div>

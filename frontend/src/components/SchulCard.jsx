@@ -12,38 +12,41 @@ function GesamtAmpel(ampel) {
 
 function YoyIcon({ pct }) {
   if (pct === null || pct === undefined) return null
-  if (pct > 2) return <TrendingUp size={14} className="text-green-500" />
+  if (pct > 2)  return <TrendingUp  size={14} className="text-green-500" />
   if (pct < -2) return <TrendingDown size={14} className="text-red-500" />
   return <Minus size={14} className="text-yellow-500" />
+}
+
+const BORDER = {
+  green:  'border-l-green-500',
+  yellow: 'border-l-yellow-400',
+  red:    'border-l-red-500',
+  gray:   'border-l-slate-300',
 }
 
 export default function SchulCard({ schule }) {
   const navigate = useNavigate()
   const gesamt = GesamtAmpel(schule.ampel)
 
-  const borderColor = {
-    green: 'border-green-400',
-    yellow: 'border-yellow-400',
-    red: 'border-red-400',
-    gray: 'border-slate-200',
-  }[gesamt]
-
   return (
     <div
       onClick={() => navigate(`/schule/${schule.id}`)}
-      className={`bg-white rounded-xl border-l-4 border border-slate-100 ${borderColor} p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150`}
+      className={`bg-white rounded-xl border border-slate-200 border-l-4 ${BORDER[gesamt]}
+        p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150`}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div>
-          <h3 className="font-semibold text-slate-800 text-sm leading-snug">{schule.name}</h3>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-[#00303F] text-sm leading-snug">{schule.name}</h3>
           <div className="flex items-center gap-1 mt-1 text-xs text-slate-400">
             <MapPin size={11} />
             <span>{schule.ort}, {schule.bundesland}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-xs font-bold bg-slate-100 text-slate-600 rounded px-1.5 py-0.5">{schule.stiftung}</span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className="text-xs font-bold rounded px-1.5 py-0.5 bg-[#e6f3f8] text-[#006892]">
+            {schule.stiftung}
+          </span>
           <AmpelDot status={gesamt} size="md" />
         </div>
       </div>
@@ -51,32 +54,32 @@ export default function SchulCard({ schule }) {
       {/* Schultypen */}
       <div className="flex flex-wrap gap-1 mb-3">
         {schule.schultypen.slice(0, 3).map(t => (
-          <span key={t} className="text-xs bg-blue-50 text-blue-600 rounded px-1.5 py-0.5">{t}</span>
+          <span key={t} className="text-xs bg-slate-100 text-slate-600 rounded px-1.5 py-0.5">{t}</span>
         ))}
       </div>
 
       {/* Kennzahlen */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="bg-slate-50 rounded-lg p-2.5">
+        <div className="bg-[#f5f8fa] rounded-lg p-2.5">
           <div className="flex items-center gap-1 text-xs text-slate-400 mb-0.5">
             <Users size={11} />
             <span>Schüler</span>
           </div>
-          <div className="font-bold text-slate-800 text-lg">
+          <div className="font-bold text-[#00303F] text-lg">
             {schule.gesamt_schueler?.toLocaleString('de-DE') ?? '–'}
           </div>
           {schule.aktuelles_schuljahr && (
             <div className="text-xs text-slate-400">SJ {schule.aktuelles_schuljahr}</div>
           )}
         </div>
-        <div className="bg-slate-50 rounded-lg p-2.5">
+        <div className="bg-[#f5f8fa] rounded-lg p-2.5">
           <div className="flex items-center gap-1 text-xs text-slate-400 mb-0.5">
             <YoyIcon pct={schule.yoy_change_pct} />
             <span>Entwicklung</span>
           </div>
           <div className={`font-bold text-lg ${
-            schule.yoy_change_pct > 2 ? 'text-green-600' :
-            schule.yoy_change_pct < -2 ? 'text-red-600' : 'text-yellow-600'
+            schule.yoy_change_pct > 2  ? 'text-green-600' :
+            schule.yoy_change_pct < -2 ? 'text-red-600'   : 'text-yellow-600'
           }`}>
             {schule.yoy_change_pct !== null && schule.yoy_change_pct !== undefined
               ? `${schule.yoy_change_pct > 0 ? '+' : ''}${schule.yoy_change_pct}%`

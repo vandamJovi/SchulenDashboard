@@ -34,8 +34,11 @@ export default function SchuleDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <div className="text-slate-400 text-lg">Wird geladen…</div>
+      <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
+        <div className="text-center">
+          <img src="/logo.svg" alt="EKMD Logo" className="h-12 mx-auto mb-6 opacity-60" />
+          <div className="text-slate-400">Wird geladen…</div>
+        </div>
       </div>
     )
   }
@@ -64,25 +67,37 @@ export default function SchuleDetail() {
     : []
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
+      {/* Top-Banner */}
+      <div style={{ background: '#00303F' }} className="py-2 px-6">
+        <div className="max-w-screen-xl mx-auto">
+          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
         <div className="max-w-screen-xl mx-auto px-6 py-4">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 mb-2 transition-colors"
+            className="flex items-center gap-2 text-sm text-white/70 hover:text-white mb-3 transition-colors"
           >
             <ArrowLeft size={16} /> Zurück zum Dashboard
           </button>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{schule.name}</h1>
-              <div className="flex items-center gap-1 text-sm text-slate-400 mt-0.5">
-                <MapPin size={13} />
-                <span>{schule.details?.strasse}, {schule.plz} {schule.ort} · {schule.bundesland}</span>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="bg-white rounded-lg px-2 py-1.5 shadow-sm shrink-0">
+                <img src="/logo.svg" alt="EKMD Logo" className="h-8 w-auto" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white leading-tight">{schule.name}</h1>
+                <div className="flex items-center gap-1 text-sm text-white/60 mt-0.5">
+                  <MapPin size={13} />
+                  <span>{schule.details?.strasse}, {schule.plz} {schule.ort} · {schule.bundesland}</span>
+                </div>
               </div>
             </div>
-            <span className="text-sm font-bold bg-slate-100 text-slate-600 rounded-lg px-3 py-1">
+            <span className="text-sm font-bold bg-white/20 text-white rounded-lg px-3 py-1 shrink-0">
               {schule.stiftung}
             </span>
           </div>
@@ -168,9 +183,9 @@ export default function SchuleDetail() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="gesamt" name="Gesamt" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="maennlich" name="Männlich" stroke="#6366f1" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" />
-                    <Line type="monotone" dataKey="weiblich" name="Weiblich" stroke="#ec4899" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" />
+                    <Line type="monotone" dataKey="gesamt" name="Gesamt" stroke="#006892" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="maennlich" name="Männlich" stroke="#00303F" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" />
+                    <Line type="monotone" dataKey="weiblich" name="Weiblich" stroke="#0085b8" strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 2" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -212,7 +227,7 @@ export default function SchuleDetail() {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    <Bar dataKey="schueler" name="Schüler" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="schueler" name="Schüler" fill="#006892" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

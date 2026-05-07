@@ -48,8 +48,11 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <div className="text-slate-400 text-lg">Daten werden geladen…</div>
+      <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
+        <div className="text-center">
+          <img src="/logo.svg" alt="EKMD Logo" className="h-12 mx-auto mb-6 opacity-60" />
+          <div className="text-slate-400">Daten werden geladen…</div>
+        </div>
       </div>
     )
   }
@@ -57,63 +60,79 @@ export default function Dashboard() {
   const ampelV = uebersicht?.ampel_verteilung ?? {}
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">Schulen-Dashboard</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Evangelische Schulstiftung Mitteldeutschland</p>
-          </div>
+    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
+
+      {/* Top-Banner */}
+      <div style={{ background: '#00303F' }} className="py-2 px-6">
+        <div className="max-w-screen-xl mx-auto flex items-center justify-between">
+          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
           {meta && (
-            <div className="text-xs text-slate-400 text-right">
-              <div>Datenstand: {new Date(meta.fetched_at).toLocaleDateString('de-DE')}</div>
-              <div>{meta.anzahl_schulen} Schulen · {meta.anzahl_datensaetze} Datensätze</div>
-            </div>
+            <span className="text-xs text-white/40">
+              Datenstand: {new Date(meta.fetched_at).toLocaleDateString('de-DE')}
+            </span>
           )}
+        </div>
+      </div>
+
+      {/* Header */}
+      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
+        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className="bg-white rounded-lg px-3 py-2 shadow-sm">
+              <img src="/logo.svg" alt="EKMD Logo" className="h-10 w-auto" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white leading-tight">Schulen-Dashboard</h1>
+              <p className="text-xs text-white/60 mt-0.5">Kennzahlen & Ampelstatus aller Schulen</p>
+            </div>
+          </div>
+          <div className="text-right text-xs text-white/50 hidden sm:block">
+            <div>{uebersicht?.gesamt_schulen} Schulen</div>
+            <div>{uebersicht?.gesamt_schueler?.toLocaleString('de-DE')} Schüler</div>
+          </div>
         </div>
       </header>
 
       <main className="max-w-screen-xl mx-auto px-6 py-6">
 
-        {/* KPI-Übersicht */}
+        {/* KPI-Kacheln */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <KpiCard
             label="Schulen gesamt"
             value={uebersicht?.gesamt_schulen}
             sub={`${uebersicht?.esm?.anzahl} ESM · ${uebersicht?.kos?.anzahl} KOS`}
             icon={School}
-            color="blue"
+            variant="dark"
           />
           <KpiCard
             label="Schüler gesamt"
             value={uebersicht?.gesamt_schueler?.toLocaleString('de-DE')}
             sub="alle ESM-Schulen"
             icon={Users}
-            color="violet"
+            variant="primary"
           />
           <KpiCard
             label="Kritische Schulen"
             value={ampelV.red ?? 0}
             sub="mind. 1 rote Kennzahl"
             icon={AlertTriangle}
-            color="amber"
+            variant="white"
           />
           <KpiCard
-            label="Schulen ohne Probleme"
+            label="Ohne Probleme"
             value={ampelV.green ?? 0}
             sub="alle Ampeln grün"
             icon={CheckCircle}
-            color="green"
+            variant="light"
           />
         </div>
 
         {/* Ampel-Legende */}
-        <div className="flex gap-4 mb-5 flex-wrap">
+        <div className="flex flex-wrap gap-4 mb-5 items-center">
           {[
-            { label: `${ampelV.red ?? 0} Kritisch`, color: 'bg-red-500' },
-            { label: `${ampelV.yellow ?? 0} Mittel`, color: 'bg-yellow-400' },
-            { label: `${ampelV.green ?? 0} Gut`, color: 'bg-green-500' },
+            { label: `${ampelV.red ?? 0} Kritisch`,    color: 'bg-red-500'    },
+            { label: `${ampelV.yellow ?? 0} Mittel`,   color: 'bg-yellow-400' },
+            { label: `${ampelV.green ?? 0} Gut`,       color: 'bg-green-500'  },
             { label: `${ampelV.gray ?? 0} Keine Daten`, color: 'bg-slate-300' },
           ].map(({ label, color }) => (
             <span key={label} className="flex items-center gap-1.5 text-sm text-slate-600">
@@ -121,35 +140,38 @@ export default function Dashboard() {
               {label}
             </span>
           ))}
-          <span className="text-sm text-slate-400 ml-2">
-            Gesamtstatus je Schule = schlechtester Einzelwert
+          <span className="text-sm text-slate-400 ml-1">
+            · Gesamtstatus = schlechtester Einzelwert
           </span>
         </div>
 
-        {/* Filter */}
+        {/* Filterleiste */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm">
           <FilterBar filters={filters} options={filterOptions} onChange={setFilters} />
         </div>
 
-        {/* Schul-Karten */}
-        <div className="mb-2 flex items-center justify-between">
+        {/* Ergebniszeile */}
+        <div className="mb-3">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
             {filtered.length} Schulen
             {filtered.length !== schulen.length && ` (von ${schulen.length})`}
           </h2>
         </div>
 
+        {/* Schul-Karten */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(s => (
-            <SchulCard key={s.id} schule={s} />
-          ))}
+          {filtered.map(s => <SchulCard key={s.id} schule={s} />)}
         </div>
 
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-slate-400">
-            Keine Schulen gefunden.
-          </div>
+          <div className="text-center py-16 text-slate-400">Keine Schulen gefunden.</div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400">
+          Evangelische Schulstiftung in Mitteldeutschland · Schulen-Dashboard POC ·{' '}
+          {meta && new Date(meta.fetched_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })}
+        </footer>
       </main>
     </div>
   )
