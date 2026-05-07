@@ -23,6 +23,10 @@ Write-Host ""
 Write-Host "  Backend:  http://localhost:5000" -ForegroundColor Green
 Write-Host "  Frontend: http://localhost:5173" -ForegroundColor Green
 Write-Host ""
+Write-Host "  Oeffne Browser..." -ForegroundColor Gray
+Start-Sleep -Seconds 2
+Start-Process "http://localhost:5173"
+Write-Host ""
 Write-Host "  Druecke Ctrl+C oder schliesse dieses Fenster zum Beenden." -ForegroundColor Yellow
 Write-Host ""
 

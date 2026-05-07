@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { AmpelDot, AmpelBadge } from './Ampel'
 import { MapPin, Users, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
-function GesamtAmpel({ ampel }) {
+function GesamtAmpel(ampel) {
   const vals = Object.values(ampel)
   if (vals.includes('red')) return 'red'
   if (vals.includes('yellow')) return 'yellow'
