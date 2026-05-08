@@ -27,17 +27,13 @@ Write-Host "  Oeffne Browser..." -ForegroundColor Gray
 Start-Sleep -Seconds 2
 Start-Process "http://localhost:5173"
 Write-Host ""
-Write-Host "  Druecke Ctrl+C oder schliesse dieses Fenster zum Beenden." -ForegroundColor Yellow
+Write-Host "  Beliebige Taste druecken zum Beenden..." -ForegroundColor Yellow
 Write-Host ""
 
-try {
-    while ($true) { Start-Sleep 1 }
-}
-finally {
-    Write-Host ""
-    Write-Host "  Beende Server..." -ForegroundColor Yellow
-    taskkill /F /T /PID $backend.Id 2>$null | Out-Null
-    taskkill /F /T /PID $frontend.Id 2>$null | Out-Null
-    Write-Host "  Fertig." -ForegroundColor Gray
-    Start-Sleep -Seconds 1
-}
+$null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+Write-Host ""
+Write-Host "  Beende Server..." -ForegroundColor Yellow
+taskkill /F /T /PID $backend.Id 2>$null | Out-Null
+taskkill /F /T /PID $frontend.Id 2>$null | Out-Null
+Write-Host "  Fertig." -ForegroundColor Gray

@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
-import { ArrowLeft, MapPin, Phone, Mail, Globe, Users, Building2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, Globe, Users, Building2, ChevronDown, ChevronUp } from 'lucide-react'
 import { AmpelRow } from '../components/Ampel'
 
 function InfoItem({ icon: Icon, label, value }) {
@@ -25,6 +25,7 @@ export default function SchuleDetail() {
   const navigate = useNavigate()
   const [schule, setSchule] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [rohdatenOffen, setRohdatenOffen] = useState(false)
 
   useEffect(() => {
     fetch(`/api/schulen/${id}`)
@@ -43,20 +44,20 @@ export default function SchuleDetail() {
     )
   }
 
+  const fotos = schule.foto_urls ?? []
+
   const history = schule.schuelerzahlen_history ?? []
   const latest = history[history.length - 1]
 
   const ampelLabels = {
     yoy:       'Schülerzahl-Entwicklung (YoY)',
     auslastung: 'Kapazitätsauslastung',
-    prognose:  'Prognose Folgejahr',
-    spg:       'Förderbedarfsquote (SPG)',
+    prognose:  'Anmeldeerfüllung Folgejahr',
   }
   const ampelValues = {
     yoy:       schule.yoy_change_pct !== null ? `${schule.yoy_change_pct > 0 ? '+' : ''}${schule.yoy_change_pct}%` : null,
     auslastung: schule.auslastung_pct !== null ? `${schule.auslastung_pct}%` : null,
     prognose:  schule.prognose_pct !== null ? `${schule.prognose_pct}%` : null,
-    spg:       schule.spg_quote_pct !== null ? `${schule.spg_quote_pct}%` : null,
   }
 
   const hasJahrgaenge = latest?.jahrgaenge && Object.keys(latest.jahrgaenge).length > 0
@@ -105,6 +106,20 @@ export default function SchuleDetail() {
       </header>
 
       <main className="max-w-screen-xl mx-auto px-6 py-6">
+
+        {/* Hero-Banner (erstes Foto) */}
+        {fotos.length > 0 && (
+          <div className="mb-6 rounded-xl overflow-hidden shadow-sm" style={{ height: 280 }}>
+            <a href={fotos[0].replace('/scaled/', '/')} target="_blank" rel="noopener noreferrer">
+              <img
+                src={fotos[0].replace('/scaled/', '/')}
+                alt="Schulfoto"
+                className="w-full h-full object-cover hover:opacity-95 transition-opacity"
+              />
+            </a>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Linke Spalte: Stammdaten + Ampel */}
@@ -245,7 +260,7 @@ export default function SchuleDetail() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {[
                     ['Schüler gesamt', schule.gesamt_schueler?.toLocaleString('de-DE')],
-                    ['Prognose Folgejahr', schule.prognose_folgejahr?.toLocaleString('de-DE')],
+                    ['Anmeldungen Folgejahr (Ist)', schule.prognose_folgejahr?.toLocaleString('de-DE')],
                     ['SPG gesamt', schule.spg_gesamt],
                     ['SPG-Quote', schule.spg_quote_pct !== null ? `${schule.spg_quote_pct}%` : null],
                     ['Auslastung', schule.auslastung_pct !== null ? `${schule.auslastung_pct}%` : null],
@@ -262,6 +277,159 @@ export default function SchuleDetail() {
 
           </div>
         </div>
+
+        {/* Fotogalerie (weitere Fotos) */}
+        {fotos.length > 1 && (
+          <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+              Weitere Fotos ({fotos.length - 1})
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              {fotos.slice(1).map((url, i) => (
+                <a key={i} href={url.replace('/scaled/', '/')} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={url}
+                    alt={`Schulfoto ${i + 2}`}
+                    className="rounded-lg shadow-sm hover:shadow-md transition-shadow max-h-48 w-auto"
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rohdaten */}
+        {(history.length > 0 || schule.quelldaten) && (
+          <div className="mt-6">
+            <button
+              onClick={() => setRohdatenOffen(o => !o)}
+              className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors mb-3"
+            >
+              {rohdatenOffen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              Quelldaten anzeigen
+            </button>
+
+            {rohdatenOffen && (
+              <div className="space-y-4">
+
+              {/* Beschreibung & Textfelder */}
+              {schule.quelldaten && (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-5">
+                  <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Beschreibung & Profil</h3>
+
+                  {schule.quelldaten.beschreibung && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-400 mb-1">Beschreibung</div>
+                      <div
+                        className="text-sm text-slate-700 leading-relaxed prose max-w-none"
+                        dangerouslySetInnerHTML={{ __html: schule.quelldaten.beschreibung }}
+                      />
+                    </div>
+                  )}
+
+                  {schule.quelldaten.profil_text && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-400 mb-1">Schulprofil</div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{schule.quelldaten.profil_text}</p>
+                    </div>
+                  )}
+
+                  {schule.quelldaten.unterricht_beschreibung && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-400 mb-1">Unterricht</div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{schule.quelldaten.unterricht_beschreibung}</p>
+                    </div>
+                  )}
+
+                  {/* Ja/Nein-Felder */}
+                  <div>
+                    <div className="text-xs font-semibold text-slate-400 mb-2">Merkmale</div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        ['Gemeinsamer Unterricht', schule.quelldaten.gemeinsamer_unterricht],
+                        ['Jahrgangsmischung', schule.quelldaten.jahrgangsmischung],
+                        ['Evaluation extern', schule.quelldaten.evaluation_extern],
+                        ['Evaluation intern', schule.quelldaten.evaluation_intern],
+                        ['Fortbildungskonzept', schule.quelldaten.fortbildung_konzept],
+                        ['Steuergruppe', schule.quelldaten.entwicklung_steuergruppe],
+                        ['Wettbewerbe', schule.quelldaten.entwicklung_wettbewerbe],
+                        ['Vernetzungstreffen', schule.quelldaten.vernetzung_treffen],
+                        ['Investitionsbedarf', schule.quelldaten.investitionsbedarf],
+                      ].map(([label, val]) => (
+                        <span key={label} className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                          val ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {val ? '✓' : '–'} {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Personalzahlen */}
+                  {(schule.quelldaten.paedagogen_maennlich || schule.quelldaten.paedagogen_weiblich) && (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-400 mb-2">Personal (Pädagogen)</div>
+                      <div className="flex gap-4 text-sm text-slate-700">
+                        {schule.quelldaten.paedagogen_maennlich != null && <span>Männlich: <strong>{schule.quelldaten.paedagogen_maennlich}</strong></span>}
+                        {schule.quelldaten.paedagogen_weiblich != null && <span>Weiblich: <strong>{schule.quelldaten.paedagogen_weiblich}</strong></span>}
+                        {schule.quelldaten.altersdurchschnitt && <span>Ø Alter: <strong>{schule.quelldaten.altersdurchschnitt}</strong></span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Monatsstatistik-Tabelle */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-4 py-3 font-semibold text-slate-500 whitespace-nowrap">Schuljahr</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Gesamt</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Männlich</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Weiblich</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Evangelisch</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Konfessionslos</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Gesamt</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Lernen</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Emotional</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Sprache</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Geistig</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Körperlich</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">SPG Begabt</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Anmeldungen (Ist)</th>
+                      <th className="px-4 py-3 font-semibold text-slate-500 text-right whitespace-nowrap">Prognose Folgejahr</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...history].reverse().map((h, i) => (
+                      <tr key={h.schuljahr} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                        <td className="px-4 py-2.5 font-semibold text-slate-700 whitespace-nowrap">{h.schuljahr}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-700 font-medium">{h.gesamt ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.maennlich ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.weiblich ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.evangelisch ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.konfessionslos ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right font-medium text-slate-700">{h.spg_gesamt ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_lernen ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_emotional ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_sprachlich ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_geistig ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_koerperlich ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.spg_begabt ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.anmeldungen_1 ?? '–'}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500">{h.prognose_folgejahr1 ?? '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
     </div>
   )

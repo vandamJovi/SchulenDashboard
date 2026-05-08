@@ -1,4 +1,4 @@
-export default function KpiCard({ label, value, sub, icon: Icon, variant = 'primary' }) {
+export default function KpiCard({ label, value, sub, icon: Icon, variant = 'primary', onClick, aktiv }) {
   const variants = {
     primary: 'bg-[#006892] text-white',
     dark:    'bg-[#00303F] text-white',
@@ -8,7 +8,14 @@ export default function KpiCard({ label, value, sub, icon: Icon, variant = 'prim
   const iconColor = (variant === 'light' || variant === 'white') ? 'text-[#006892]' : 'text-white/70'
 
   return (
-    <div className={`rounded-xl p-5 flex items-start gap-4 shadow-sm ${variants[variant]}`}>
+    <div
+      onClick={onClick}
+      className={`rounded-xl p-5 flex items-start gap-4 shadow-sm transition-transform
+        ${variants[variant]}
+        ${onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''}
+        ${aktiv ? 'ring-2 ring-offset-2 ring-white/60' : ''}
+      `}
+    >
       {Icon && (
         <div className={`mt-0.5 shrink-0 ${iconColor}`}>
           <Icon size={22} />

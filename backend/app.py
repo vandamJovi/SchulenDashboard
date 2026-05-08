@@ -5,8 +5,13 @@ Liest lokale JSON-Daten und stellt REST-API bereit.
 
 import json
 import os
-from flask import Flask, jsonify, abort
+import urllib.request
+from datetime import datetime
+from flask import Flask, jsonify, abort, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = Flask(__name__)
 CORS(app)
@@ -62,14 +67,33 @@ def _parse_int(val):
         return None
 
 
+def _is_august(z):
+    return z.get("Schulmonat") and z["Schulmonat"][0].get("id") == 1
+
+
+def _parse_updated_at(z):
+    try:
+        return datetime.strptime(z.get("updatedAt", ""), "%d.%m.%Y | %H:%M Uhr")
+    except (ValueError, TypeError):
+        return datetime.min
+
+
 def _latest_record(zahlen_fuer_schule):
-    """Gibt den Datensatz mit dem neuesten Schuljahr zurück."""
+    """Neuester Datensatz mit Ist-Schülerzahlen (August für Historik, letzter Monat für aktuelles Jahr)."""
     filled = [z for z in zahlen_fuer_schule if _parse_int(z.get("Gesamt")) is not None]
     if not filled:
         return None
-    return max(filled, key=lambda z: (
-        z["Schuljahr"][0]["Jahr"] if z.get("Schuljahr") else 0
-    ))
+    return max(filled, key=lambda z: z["Schuljahr"][0]["Jahr"] if z.get("Schuljahr") else 0)
+
+
+def _latest_folgejahr_record(zahlen_fuer_schule):
+    """Zuletzt geänderter Datensatz des neuesten Schuljahres (für Folgejahr-Anmeldungen)."""
+    with_sj = [z for z in zahlen_fuer_schule if z.get("Schuljahr")]
+    if not with_sj:
+        return None
+    latest_jahr = max(z["Schuljahr"][0]["Jahr"] for z in with_sj)
+    current = [z for z in with_sj if z["Schuljahr"][0]["Jahr"] == latest_jahr]
+    return max(current, key=_parse_updated_at)
 
 
 def _prev_record(zahlen_fuer_schule, latest):
@@ -90,6 +114,7 @@ def _compute_kpis(schule, zahlen_fuer_schule):
     """Berechnet KPIs und Ampelstatus für eine Schule."""
     latest = _latest_record(zahlen_fuer_schule)
     prev = _prev_record(zahlen_fuer_schule, latest)
+    latest_fj = _latest_folgejahr_record(zahlen_fuer_schule)
 
     gesamt = _parse_int(latest.get("Gesamt")) if latest else None
     gesamt_prev = _parse_int(prev.get("Gesamt")) if prev else None
@@ -105,11 +130,15 @@ def _compute_kpis(schule, zahlen_fuer_schule):
     if gesamt is not None and n_raeume and n_raeume > 0:
         auslastung = round(gesamt / (n_raeume * SCHUELER_PRO_RAUM) * 100, 1)
 
-    # Prognose Folgejahr1
-    prognose_val = _parse_int(latest.get("Gesamt_Folgejahr1")) if latest else None
+    # Anmeldeerfüllung Folgejahr1: aktuellster Monatswert Ist / Soll
+    anmeldungen_ist = _parse_int(latest_fj.get("Gesamt_Folgejahr1")) if latest_fj else None
+    anmeldungen_soll = None
+    if latest_fj and latest_fj.get("Schuljahr"):
+        anmeldungen_soll = _parse_int(latest_fj["Schuljahr"][0].get("Sollzahl_Folgejahr1"))
+    prognose_val = anmeldungen_ist
     prognose_pct = None
-    if prognose_val is not None and gesamt and gesamt > 0:
-        prognose_pct = round(prognose_val / gesamt * 100, 1)
+    if anmeldungen_ist is not None and anmeldungen_soll and anmeldungen_soll > 0:
+        prognose_pct = round(anmeldungen_ist / anmeldungen_soll * 100, 1)
 
     # SPG-Quote
     spg = _spg_total(latest) if latest else 0
@@ -140,8 +169,6 @@ def _compute_kpis(schule, zahlen_fuer_schule):
                                  THRESHOLDS["auslastung"]["yellow"], True),
             "prognose":  _ampel(prognose_pct, THRESHOLDS["prognose"]["green"],
                                 THRESHOLDS["prognose"]["yellow"], True),
-            "spg":       _ampel(spg_quote, THRESHOLDS["spg_quote"]["green"],
-                                THRESHOLDS["spg_quote"]["yellow"], False),
         },
     }
 
@@ -301,6 +328,36 @@ def schule_detail(schule_id):
         "evaluation_extern": schule.get("EvaluationExtern"),
     }
     summary["schuelerzahlen_history"] = _build_zahlen_history(zahlen_fuer_schule)
+    uid = schule.get("uId", "")
+    foto_paths = data.get("schulbilder", {}).get(uid, [])
+    BASE_IMG = "https://kesep.ekmd-online.de/"
+    summary["foto_urls"] = [BASE_IMG + p for p in foto_paths]
+
+    summary["quelldaten"] = {
+        "beschreibung": schule.get("Beschreibung") or None,
+        "profil": schule.get("Profil") or None,
+        "profil_text": schule.get("ProfilText") or None,
+        "unterricht_beschreibung": schule.get("UnterrichtBeschreibung") or None,
+        "analyse": schule.get("Analyse") or None,
+        "prognose_text": schule.get("Prognose") or None,
+        "stufenorganisation": schule.get("Stufenorganisation") or None,
+        "gemeinsamer_unterricht": schule.get("GemeinsamerUnterricht"),
+        "jahrgangsmischung": schule.get("Jahrgangsmischung"),
+        "gebunden": schule.get("gebunden") or None,
+        "flaeche_pro_schueler": schule.get("FreiflaecheProSchueler") or None,
+        "paedagogen_maennlich": _parse_int(schule.get("PaedagogenMaennlich")),
+        "paedagogen_weiblich": _parse_int(schule.get("PaedagogenWeiblich")),
+        "altersdurchschnitt": schule.get("Altersdurchschnitt") or None,
+        "evaluation_intern": schule.get("EvaluationIntern"),
+        "evaluation_extern": schule.get("EvaluationExtern"),
+        "evaluation_test": schule.get("EvaluationTestTeilnahme"),
+        "fortbildung_konzept": schule.get("FortbildungKonzept"),
+        "entwicklung_steuergruppe": schule.get("EntwicklungSteuergruppe"),
+        "entwicklung_wettbewerbe": schule.get("EntwicklungWettbewerbe"),
+        "vernetzung_treffen": schule.get("VernetzungTreffen"),
+        "oeff_arbeit_konzept": schule.get("OeffArbeitKonzept"),
+        "investitionsbedarf": schule.get("Investitionsbedarf"),
+    }
     return jsonify(summary)
 
 
@@ -340,11 +397,42 @@ def uebersicht():
     esm_schulen = [s for s in summaries if s["stiftung"] == "ESM"]
     kos_schulen = [s for s in summaries if s["stiftung"] == "KOS"]
 
+    # Jahrgangs- und SPG-Summen über alle Schulen
+    jahrgaenge_gesamt = {}
+    spg_gesamt = {"lernen": 0, "emotional": 0, "sprachlich": 0, "geistig": 0, "koerperlich": 0, "begabt": 0}
+    for s in data["schulen"]:
+        zahlen = zahlen_by_schule.get(s["id"], [])
+        latest = _latest_record(zahlen)
+        if not latest:
+            continue
+        for i in range(1, 13):
+            val = _parse_int(latest.get(f"Jahrgang{i}Gesamt"))
+            if val is not None:
+                jahrgaenge_gesamt[str(i)] = jahrgaenge_gesamt.get(str(i), 0) + val
+        for key in spg_gesamt:
+            val = _parse_int(latest.get(f"SPG_{key}"))
+            if val is not None:
+                spg_gesamt[key] += val
+
+    def ampel_schulen(status):
+        result = []
+        for s in summaries:
+            vals = list(s["ampel"].values())
+            if status == "red" and "red" in vals:
+                result.append({"id": s["id"], "name": s["name"], "ort": s["ort"]})
+            elif status == "green" and "green" in vals and "red" not in vals and "yellow" not in vals:
+                result.append({"id": s["id"], "name": s["name"], "ort": s["ort"]})
+        return sorted(result, key=lambda x: x["name"])
+
     return jsonify({
         "gesamt_schulen": len(summaries),
         "gesamt_schueler": total_schueler,
         "schulen_mit_daten": len(with_data),
         "ampel_verteilung": ampel_counts,
+        "jahrgaenge_gesamt": jahrgaenge_gesamt,
+        "spg_gesamt": spg_gesamt,
+        "rote_schulen": ampel_schulen("red"),
+        "gruene_schulen": ampel_schulen("green"),
         "esm": {
             "anzahl": len(esm_schulen),
             "schueler": sum(s["gesamt_schueler"] for s in esm_schulen
@@ -356,6 +444,92 @@ def uebersicht():
                            if s["gesamt_schueler"] is not None),
         },
     })
+
+
+def _build_kontext():
+    """Kompakte Textübersicht aller Schulen für den KI-Kontext."""
+    data = _load_data()
+    zahlen_by_schule = {}
+    for z in data["schuelerzahlen"]:
+        sid = z.get("Schule") if isinstance(z.get("Schule"), int) else (
+            z["Schule"][0]["id"] if isinstance(z.get("Schule"), list) and z["Schule"] else None
+        )
+        if sid:
+            zahlen_by_schule.setdefault(sid, []).append(z)
+
+    lines = ["# Schulen-Übersicht (Evangelische Schulstiftung Mitteldeutschland)\n"]
+    for s in data["schulen"]:
+        summary = _build_schule_summary(s, zahlen_by_schule.get(s["id"], []))
+        ampel_gesamt = "grün"
+        vals = list(summary["ampel"].values())
+        if "red" in vals:
+            ampel_gesamt = "rot"
+        elif "yellow" in vals:
+            ampel_gesamt = "gelb"
+        elif not any(v == "green" for v in vals):
+            ampel_gesamt = "keine Daten"
+
+        yoy = f"{summary['yoy_change_pct']:+}%" if summary['yoy_change_pct'] is not None else "–"
+        auslastung = f"{summary['auslastung_pct']}%" if summary['auslastung_pct'] is not None else "–"
+        prognose = f"{summary['prognose_pct']}%" if summary['prognose_pct'] is not None else "–"
+        spg_q = f"{summary['spg_quote_pct']}%" if summary['spg_quote_pct'] is not None else "–"
+        lines.append(
+            f"- {summary['name']} ({summary['stiftung']}, {summary['ort']}, {summary['bundesland']})"
+            f" | Schultypen: {', '.join(summary['schultypen']) or '–'}"
+            f" | Schüler: {summary['gesamt_schueler'] or '–'}"
+            f" | YoY: {yoy}"
+            f" | Auslastung: {auslastung}"
+            f" | Anmeldeerfüllung: {prognose}"
+            f" | SPG-Quote: {spg_q}"
+            f" | Ampel: {ampel_gesamt}"
+        )
+    return "\n".join(lines)
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    body = request.get_json(silent=True) or {}
+    frage = (body.get("frage") or "").strip()
+    if not frage:
+        return jsonify({"error": "Keine Frage angegeben."}), 400
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "API-Key nicht konfiguriert."}), 500
+
+    kontext = _build_kontext()
+
+    # Anfrage an Claude API (direkt über HTTP, kein SDK nötig)
+    payload = json.dumps({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 1024,
+        "system": (
+            "Du bist ein Assistent für das Schulen-Dashboard der Evangelischen Schulstiftung "
+            "Mitteldeutschland. Du beantwortest Fragen zu den Schuldaten präzise und auf Deutsch. "
+            "Antworte kurz und direkt. Wenn du eine Liste ausgibst, halte sie übersichtlich.\n\n"
+            + kontext
+        ),
+        "messages": [{"role": "user", "content": frage}],
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            antwort = result["content"][0]["text"]
+            return jsonify({"antwort": antwort})
+    except urllib.error.HTTPError as e:
+        err = e.read().decode("utf-8", errors="replace")
+        return jsonify({"error": f"API-Fehler: {err[:200]}"}), 502
 
 
 if __name__ == "__main__":

@@ -135,7 +135,7 @@ Alle Schwellwerte sind in `backend/app.py` in der Konstante `THRESHOLDS` definie
 |---|---|---|---|---|
 | Schülerzahl-Entwicklung (YoY) | > +2% | -2% bis +2% | < -2% | (Ist − Vorjahr) / Vorjahr |
 | Kapazitätsauslastung | ≥ 70% | 50–70% | < 50% | Schüler / (Klassenräume × 25) |
-| Prognose vs. Ist | ≥ 95% | 80–95% | < 80% | Gesamt_Folgejahr1 / Gesamt |
+| Anmeldeerfüllung Folgejahr | ≥ 95% | 80–95% | < 80% | Gesamt_Folgejahr1 / Schuljahr[0].Sollzahl_Folgejahr1 |
 | SPG-Quote (Förderbedarf) | < 10% | 10–20% | > 20% | SPG-Summe / Gesamt |
 
 **Annahme Auslastung:** 25 Schüler pro Klassenraum als maximale Kapazität (Konstante `SCHUELER_PRO_RAUM` in `app.py`).

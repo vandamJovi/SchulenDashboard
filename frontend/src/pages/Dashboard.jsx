@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
-import { School, Users, AlertTriangle, CheckCircle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { School, Users, AlertTriangle, CheckCircle, Map } from 'lucide-react'
 import KpiCard from '../components/KpiCard'
 import FilterBar from '../components/FilterBar'
 import SchulCard from '../components/SchulCard'
+import ChatWidget from '../components/ChatWidget'
 
 const EMPTY_FILTERS = { stiftung: '', bundesland: '', schultyp: '', ampel: '', suche: '' }
 
@@ -15,12 +17,25 @@ function gesamtAmpel(ampel) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [schulen, setSchulen] = useState([])
   const [uebersicht, setUebersicht] = useState(null)
   const [filterOptions, setFilterOptions] = useState({})
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState(null)
+  const [sortierung, setSortierung] = useState('daten')
+  const [aktivesPanel, setAktivesPanel] = useState(null)
+  const schulenRef = useRef(null)
+  const panelRef = useRef(null)
+
+  function togglePanel(name) {
+    setAktivesPanel(p => {
+      const next = p === name ? null : name
+      if (next) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+      return next
+    })
+  }
 
   useEffect(() => {
     Promise.all([
@@ -37,14 +52,27 @@ export default function Dashboard() {
     })
   }, [])
 
-  const filtered = schulen.filter(s => {
-    if (filters.stiftung && s.stiftung !== filters.stiftung) return false
-    if (filters.bundesland && s.bundesland !== filters.bundesland) return false
-    if (filters.schultyp && !s.schultypen.includes(filters.schultyp)) return false
-    if (filters.ampel && gesamtAmpel(s.ampel) !== filters.ampel) return false
-    if (filters.suche && !s.name.toLowerCase().includes(filters.suche.toLowerCase())) return false
-    return true
-  })
+  const filtered = schulen
+    .filter(s => {
+      if (filters.stiftung && s.stiftung !== filters.stiftung) return false
+      if (filters.bundesland && s.bundesland !== filters.bundesland) return false
+      if (filters.schultyp && !s.schultypen.includes(filters.schultyp)) return false
+      if (filters.ampel && gesamtAmpel(s.ampel) !== filters.ampel) return false
+      if (filters.suche && !s.name.toLowerCase().includes(filters.suche.toLowerCase())) return false
+      return true
+    })
+    .sort((a, b) => {
+      const nullLast = (val) => val ?? -Infinity
+      switch (sortierung) {
+        case 'schueler':   return nullLast(b.gesamt_schueler) - nullLast(a.gesamt_schueler)
+        case 'auslastung': return nullLast(b.auslastung_pct)  - nullLast(a.auslastung_pct)
+        case 'prognose':   return nullLast(b.prognose_pct)    - nullLast(a.prognose_pct)
+        default: // 'daten': Schulen mit Daten zuerst, dann alphabetisch
+          if ((a.gesamt_schueler == null) !== (b.gesamt_schueler == null))
+            return a.gesamt_schueler == null ? 1 : -1
+          return a.name.localeCompare(b.name, 'de')
+      }
+    })
 
   if (loading) {
     return (
@@ -86,9 +114,17 @@ export default function Dashboard() {
               <p className="text-xs text-white/60 mt-0.5">Kennzahlen & Ampelstatus aller Schulen</p>
             </div>
           </div>
-          <div className="text-right text-xs text-white/50 hidden sm:block">
-            <div>{uebersicht?.gesamt_schulen} Schulen</div>
-            <div>{uebersicht?.gesamt_schueler?.toLocaleString('de-DE')} Schüler</div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/karte')}
+              className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
+            >
+              <Map size={16} /> Karte
+            </button>
+            <div className="text-right text-xs text-white/50 hidden sm:block">
+              <div>{uebersicht?.gesamt_schulen} Schulen</div>
+              <div>{uebersicht?.gesamt_schueler?.toLocaleString('de-DE')} Schüler</div>
+            </div>
           </div>
         </div>
       </header>
@@ -96,13 +132,14 @@ export default function Dashboard() {
       <main className="max-w-screen-xl mx-auto px-6 py-6">
 
         {/* KPI-Kacheln */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <KpiCard
             label="Schulen gesamt"
             value={uebersicht?.gesamt_schulen}
             sub={`${uebersicht?.esm?.anzahl} ESM · ${uebersicht?.kos?.anzahl} KOS`}
             icon={School}
             variant="dark"
+            onClick={() => schulenRef.current?.scrollIntoView({ behavior: 'smooth' })}
           />
           <KpiCard
             label="Schüler gesamt"
@@ -110,6 +147,8 @@ export default function Dashboard() {
             sub="alle ESM-Schulen"
             icon={Users}
             variant="primary"
+            onClick={() => togglePanel('schueler')}
+            aktiv={aktivesPanel === 'schueler'}
           />
           <KpiCard
             label="Kritische Schulen"
@@ -117,6 +156,8 @@ export default function Dashboard() {
             sub="mind. 1 rote Kennzahl"
             icon={AlertTriangle}
             variant="white"
+            onClick={() => togglePanel('kritisch')}
+            aktiv={aktivesPanel === 'kritisch'}
           />
           <KpiCard
             label="Ohne Probleme"
@@ -124,11 +165,86 @@ export default function Dashboard() {
             sub="alle Ampeln grün"
             icon={CheckCircle}
             variant="light"
+            onClick={() => togglePanel('gruen')}
+            aktiv={aktivesPanel === 'gruen'}
           />
         </div>
 
+        {/* Detail-Panel unter den Kacheln */}
+        {aktivesPanel && (
+          <div ref={panelRef} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-4">
+            {aktivesPanel === 'schueler' && (
+              <>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Schüler nach Jahrgang (alle Schulen)</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                  {Object.entries(uebersicht?.jahrgaenge_gesamt ?? {})
+                    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                    .map(([jg, anzahl]) => (
+                      <div key={jg} className="bg-slate-50 rounded-lg p-3 text-center">
+                        <div className="text-xs text-slate-400 mb-1">Jahrgang {jg}</div>
+                        <div className="text-xl font-bold text-slate-800">{anzahl.toLocaleString('de-DE')}</div>
+                      </div>
+                    ))}
+                </div>
+
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Förderbedarf (SPG) gesamt</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    ['Lernen',     uebersicht?.spg_gesamt?.lernen],
+                    ['Emotional',  uebersicht?.spg_gesamt?.emotional],
+                    ['Sprache',    uebersicht?.spg_gesamt?.sprachlich],
+                    ['Geistig',    uebersicht?.spg_gesamt?.geistig],
+                    ['Körperlich', uebersicht?.spg_gesamt?.koerperlich],
+                    ['Begabt',     uebersicht?.spg_gesamt?.begabt],
+                  ].map(([label, val]) => (
+                    <div key={label} className="bg-amber-50 rounded-lg p-3 text-center">
+                      <div className="text-xs text-amber-600 mb-1">{label}</div>
+                      <div className="text-xl font-bold text-slate-800">{(val ?? 0).toLocaleString('de-DE')}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {aktivesPanel === 'kritisch' && (
+              <>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Schulen mit kritischem Status</h3>
+                <div className="space-y-1">
+                  {(uebersicht?.rote_schulen ?? []).map(s => (
+                    <button key={s.id} onClick={() => navigate(`/schule/${s.id}`)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-red-50 text-left group transition-colors">
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-red-700">{s.name}</span>
+                      <span className="text-xs text-slate-400">{s.ort} →</span>
+                    </button>
+                  ))}
+                  {(uebersicht?.rote_schulen ?? []).length === 0 && <p className="text-sm text-slate-400">Keine kritischen Schulen.</p>}
+                </div>
+              </>
+            )}
+            {aktivesPanel === 'gruen' && (
+              <>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Schulen ohne Probleme</h3>
+                <div className="space-y-1">
+                  {(uebersicht?.gruene_schulen ?? []).map(s => (
+                    <button key={s.id} onClick={() => navigate(`/schule/${s.id}`)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-green-50 text-left group transition-colors">
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-green-700">{s.name}</span>
+                      <span className="text-xs text-slate-400">{s.ort} →</span>
+                    </button>
+                  ))}
+                  {(uebersicht?.gruene_schulen ?? []).length === 0 && <p className="text-sm text-slate-400">Keine Schulen ohne Probleme.</p>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* KI-Assistent */}
+        <div className="mb-6">
+          <ChatWidget />
+        </div>
+
         {/* Ampel-Legende */}
-        <div className="flex flex-wrap gap-4 mb-5 items-center">
+        <div ref={schulenRef} className="flex flex-wrap gap-4 mb-5 items-center">
           {[
             { label: `${ampelV.red ?? 0} Kritisch`,    color: 'bg-red-500'    },
             { label: `${ampelV.yellow ?? 0} Mittel`,   color: 'bg-yellow-400' },
@@ -150,12 +266,33 @@ export default function Dashboard() {
           <FilterBar filters={filters} options={filterOptions} onChange={setFilters} />
         </div>
 
-        {/* Ergebniszeile */}
-        <div className="mb-3">
+        {/* Ergebniszeile + Sortierung */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
             {filtered.length} Schulen
             {filtered.length !== schulen.length && ` (von ${schulen.length})`}
           </h2>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="text-slate-400 mr-1">Sortierung:</span>
+            {[
+              { key: 'schueler',   label: 'Schülerzahl' },
+              { key: 'auslastung', label: 'Auslastung' },
+              { key: 'prognose',   label: 'Anmeldeerfüllung' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setSortierung(s => s === key ? 'daten' : key)}
+                className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                  sortierung === key
+                    ? 'text-white'
+                    : 'text-slate-500 bg-white border border-slate-200 hover:border-slate-300'
+                }`}
+                style={sortierung === key ? { background: '#006892' } : {}}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Schul-Karten */}
