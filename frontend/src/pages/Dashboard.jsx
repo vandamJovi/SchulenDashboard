@@ -39,10 +39,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/schulen').then(r => r.json()),
-      fetch('/api/uebersicht').then(r => r.json()),
-      fetch('/api/filter-options').then(r => r.json()),
-      fetch('/api/meta').then(r => r.json()),
+      fetch('/api/schulen', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/uebersicht', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/filter-options', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/meta', { credentials: 'include' }).then(r => r.json()),
     ]).then(([s, u, fo, m]) => {
       setSchulen(s)
       setUebersicht(u)

@@ -5,16 +5,33 @@ Liest lokale JSON-Daten und stellt REST-API bereit.
 
 import json
 import os
+import functools
 import urllib.request
 from datetime import datetime
-from flask import Flask, jsonify, abort, request
+from flask import Flask, jsonify, abort, request, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-bitte-aendern")
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:5173",
+    os.environ.get("FRONTEND_URL", ""),
+])
+
+DASHBOARD_USER     = os.environ.get("DASHBOARD_USER", "admin")
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "changeme")
+
+
+def login_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("authenticated"):
+            return jsonify({"error": "Nicht angemeldet."}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kesep_data.json")
 
@@ -248,7 +265,30 @@ def _build_zahlen_history(zahlen_fuer_schule):
 
 # ── API Endpoints ─────────────────────────────────────────────────────────────
 
+@app.route("/api/login", methods=["POST"])
+def login():
+    body = request.get_json(silent=True) or {}
+    if body.get("user") == DASHBOARD_USER and body.get("password") == DASHBOARD_PASSWORD:
+        session["authenticated"] = True
+        return jsonify({"ok": True})
+    return jsonify({"error": "Ungültige Zugangsdaten."}), 401
+
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/me")
+def me():
+    if session.get("authenticated"):
+        return jsonify({"authenticated": True})
+    return jsonify({"authenticated": False}), 401
+
+
 @app.route("/api/meta")
+@login_required
 def meta():
     data = _load_data()
     return jsonify({
@@ -260,6 +300,7 @@ def meta():
 
 
 @app.route("/api/filter-options")
+@login_required
 def filter_options():
     data = _load_data()
     schulen = data["schulen"]
@@ -276,6 +317,7 @@ def filter_options():
 
 
 @app.route("/api/schulen")
+@login_required
 def schulen_liste():
     data = _load_data()
     zahlen_by_schule = {}
@@ -295,6 +337,7 @@ def schulen_liste():
 
 
 @app.route("/api/schulen/<int:schule_id>")
+@login_required
 def schule_detail(schule_id):
     data = _load_data()
     schule = next((s for s in data["schulen"] if s["id"] == schule_id), None)
@@ -362,6 +405,7 @@ def schule_detail(schule_id):
 
 
 @app.route("/api/uebersicht")
+@login_required
 def uebersicht():
     """Aggregierte Kennzahlen über alle Schulen."""
     data = _load_data()
@@ -487,6 +531,7 @@ def _build_kontext():
 
 
 @app.route("/api/chat", methods=["POST"])
+@login_required
 def chat():
     body = request.get_json(silent=True) or {}
     frage = (body.get("frage") or "").strip()

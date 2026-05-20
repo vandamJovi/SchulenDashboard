@@ -25,7 +25,7 @@ export default function Karte() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/schulen')
+    fetch('/api/schulen', { credentials: 'include' })
       .then(r => r.json())
       .then(d => { setSchulen(d); setLoading(false) })
   }, [])

@@ -28,7 +28,7 @@ export default function SchuleDetail() {
   const [rohdatenOffen, setRohdatenOffen] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/schulen/${id}`)
+    fetch(`/api/schulen/${id}`, { credentials: 'include' })
       .then(r => r.json())
       .then(d => { setSchule(d); setLoading(false) })
   }, [id])
