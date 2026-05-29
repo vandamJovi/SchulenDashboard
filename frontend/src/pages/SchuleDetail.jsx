@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
-import { ArrowLeft, MapPin, Phone, Mail, Globe, Users, Building2, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, Globe, Users, Building2, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react'
 import { AmpelRow } from '../components/Ampel'
 
 function InfoItem({ icon: Icon, label, value }) {
@@ -98,9 +98,19 @@ export default function SchuleDetail() {
                 </div>
               </div>
             </div>
-            <span className="text-sm font-bold bg-white/20 text-white rounded-lg px-3 py-1 shrink-0">
-              {schule.stiftung}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              {schule.stiftung === 'ESM' && (
+                <button
+                  onClick={() => navigate(`/schule/${id}/klassen`)}
+                  className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
+                >
+                  <GraduationCap size={16} /> Klassen & Noten
+                </button>
+              )}
+              <span className="text-sm font-bold bg-white/20 text-white rounded-lg px-3 py-1">
+                {schule.stiftung}
+              </span>
+            </div>
           </div>
         </div>
       </header>

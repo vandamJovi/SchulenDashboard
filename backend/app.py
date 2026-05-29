@@ -530,6 +530,166 @@ def _build_kontext():
     return "\n".join(lines)
 
 
+def _load_mock():
+    mock_path = os.path.join(os.path.dirname(__file__), "..", "data", "mock_klassen.json")
+    if not os.path.exists(mock_path):
+        return {}
+    with open(mock_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.route("/api/schulen/<int:schule_id>/klassen")
+@login_required
+def klassen_uebersicht(schule_id):
+    mock = _load_mock()
+    schul_mock = mock.get(str(schule_id))
+    if not schul_mock:
+        return jsonify({"klassen": [], "lehrer": [], "faecher": []})
+
+    lehrer_by_id = {l["id"]: l for l in schul_mock["lehrer"]}
+
+    klassen_out = []
+    for kl in schul_mock["klassen"]:
+        kl_lehrer = lehrer_by_id.get(kl["klassenlehrer_id"], {})
+        klassen_out.append({
+            "id": kl["id"],
+            "bezeichnung": kl["bezeichnung"],
+            "jahrgang": kl["jahrgang"],
+            "anzahl_schueler": kl["anzahl_schueler"],
+            "klassen_schnitt": kl["klassen_schnitt"],
+            "klassenlehrer": f"{kl_lehrer.get('vorname','')} {kl_lehrer.get('nachname','')}".strip(),
+            "fach_schnitte": kl["fach_schnitte"],
+        })
+
+    return jsonify({
+        "klassen": klassen_out,
+        "lehrer": schul_mock["lehrer"],
+        "faecher": schul_mock["faecher"],
+    })
+
+
+@app.route("/api/schulen/<int:schule_id>/klassen/<int:klasse_id>")
+@login_required
+def klasse_detail(schule_id, klasse_id):
+    mock = _load_mock()
+    schul_mock = mock.get(str(schule_id))
+    if not schul_mock:
+        abort(404)
+
+    kl = next((k for k in schul_mock["klassen"] if k["id"] == klasse_id), None)
+    if not kl:
+        abort(404)
+
+    lehrer_by_id = {l["id"]: l for l in schul_mock["lehrer"]}
+    kl_lehrer = lehrer_by_id.get(kl["klassenlehrer_id"], {})
+
+    schueler_out = []
+    for s in kl.get("schueler", []):
+        fach_infos = {}
+        for fach, fd in s["noten"].items():
+            l = lehrer_by_id.get(fd["lehrer_id"], {})
+            fach_infos[fach] = {
+                "lehrer": f"{l.get('vorname','')} {l.get('nachname','')}".strip(),
+                "lehrer_id": fd["lehrer_id"],
+                "schnitt": fd["schnitt"],
+                "noten": fd["noten"],
+            }
+        schueler_out.append({
+            "id": s["id"],
+            "vorname": s["vorname"],
+            "nachname": s["nachname"],
+            "geschlecht": s["geschlecht"],
+            "gesamt_schnitt": s["gesamt_schnitt"],
+            "faecher": fach_infos,
+        })
+
+    return jsonify({
+        "id": kl["id"],
+        "bezeichnung": kl["bezeichnung"],
+        "jahrgang": kl["jahrgang"],
+        "klassen_schnitt": kl["klassen_schnitt"],
+        "anzahl_schueler": kl["anzahl_schueler"],
+        "klassenlehrer": f"{kl_lehrer.get('vorname','')} {kl_lehrer.get('nachname','')}".strip(),
+        "fach_schnitte": kl["fach_schnitte"],
+        "lehrer": schul_mock["lehrer"],
+        "faecher": schul_mock["faecher"],
+        "schueler": schueler_out,
+    })
+
+
+@app.route("/api/schulen/<int:schule_id>/lehrer/<int:lehrer_id>")
+@login_required
+def lehrer_detail(schule_id, lehrer_id):
+    mock = _load_mock()
+    schul_mock = mock.get(str(schule_id))
+    if not schul_mock:
+        abort(404)
+
+    lehrer = next((l for l in schul_mock["lehrer"] if l["id"] == lehrer_id), None)
+    if not lehrer:
+        abort(404)
+
+    # Alle Klassen wo dieser Lehrer unterrichtet
+    eigene_klassen = []
+    for kl in schul_mock["klassen"]:
+        unterrichtete_faecher = [
+            fach for fach, fs in kl["fach_schnitte"].items()
+            if fs.get("lehrer_id") == lehrer_id
+        ]
+        if not unterrichtete_faecher:
+            continue
+
+        kl_lehrer_obj = next((l for l in schul_mock["lehrer"] if l["id"] == kl["klassenlehrer_id"]), {})
+
+        # Schüler dieser Klasse mit ihren Noten in den relevanten Fächern
+        schueler_out = []
+        for s in kl.get("schueler", []):
+            fach_infos = {}
+            for fach in unterrichtete_faecher:
+                fd = s["noten"].get(fach, {})
+                fach_infos[fach] = {
+                    "schnitt": fd.get("schnitt"),
+                    "noten": fd.get("noten", []),
+                }
+            schueler_out.append({
+                "id": s["id"],
+                "vorname": s["vorname"],
+                "nachname": s["nachname"],
+                "geschlecht": s["geschlecht"],
+                "gesamt_schnitt": s["gesamt_schnitt"],
+                "fehlzeiten": s.get("fehlzeiten", {}),
+                "trend_delta": s.get("trend_delta", 0),
+                "lernentwicklung": s.get("lernentwicklung", {}),
+                "faecher": fach_infos,
+            })
+
+        fach_schnitte_lehrer = {
+            fach: kl["fach_schnitte"][fach]["klassen_schnitt"]
+            for fach in unterrichtete_faecher
+        }
+
+        eigene_klassen.append({
+            "id": kl["id"],
+            "bezeichnung": kl["bezeichnung"],
+            "jahrgang": kl["jahrgang"],
+            "klassen_schnitt": kl["klassen_schnitt"],
+            "anzahl_schueler": kl["anzahl_schueler"],
+            "klassenlehrer": f"{kl_lehrer_obj.get('vorname','')} {kl_lehrer_obj.get('nachname','')}".strip(),
+            "unterrichtete_faecher": unterrichtete_faecher,
+            "fach_schnitte": fach_schnitte_lehrer,
+            "schulklima_score": kl.get("schulklima_score"),
+            "verbesserungsrate_pct": kl.get("verbesserungsrate_pct"),
+            "fehlzeiten_schnitt": kl.get("fehlzeiten_schnitt"),
+            "schueler": schueler_out,
+        })
+
+    return jsonify({
+        "lehrer": lehrer,
+        "klassen": eigene_klassen,
+        "faecher": schul_mock["faecher"],
+    })
+
+
 @app.route("/api/chat", methods=["POST"])
 @login_required
 def chat():

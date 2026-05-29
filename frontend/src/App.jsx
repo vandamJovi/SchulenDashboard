@@ -4,6 +4,9 @@ import Dashboard from './pages/Dashboard'
 import SchuleDetail from './pages/SchuleDetail'
 import Karte from './pages/Karte'
 import Login from './pages/Login'
+import KlassenUebersicht from './pages/KlassenUebersicht'
+import KlassenDetail from './pages/KlassenDetail'
+import LehrerDetail from './pages/LehrerDetail'
 
 export default function App() {
   const [auth, setAuth] = useState(null) // null = prüft noch, true/false = Ergebnis
@@ -30,6 +33,9 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/schule/:id" element={<SchuleDetail />} />
+      <Route path="/schule/:id/klassen" element={<KlassenUebersicht />} />
+      <Route path="/schule/:id/klassen/:klasseId" element={<KlassenDetail />} />
+      <Route path="/schule/:id/lehrer/:lehrerId" element={<LehrerDetail />} />
       <Route path="/karte" element={<Karte />} />
     </Routes>
   )
