@@ -9,10 +9,23 @@
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
   background-color: #f5f8fa;
+  color: #1e293b;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Zahlen in KPIs und Tabellen bündig untereinander */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sichtbarer Tastatur-Fokus auf allen interaktiven Elementen */
+:focus-visible {
+  outline: 2px solid #0085b8;
+  outline-offset: 2px;
+  border-radius: 4px;
 }

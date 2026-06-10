@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { ChevronDown, ChevronUp, Info } from 'lucide-react'
+import Layout from '../components/Layout'
+import NotenSkala, { NotenSkalaKompakt } from '../components/NotenSkala'
 
 function schnittFarbe(s) {
   if (s == null) return 'text-slate-400'
@@ -17,34 +19,6 @@ function schnittBg(s) {
   if (s <= 3.5) return 'bg-yellow-50 border-yellow-100'
   if (s <= 4.5) return 'bg-orange-50 border-orange-100'
   return 'bg-red-50 border-red-100'
-}
-function balkenFarbe(s) {
-  if (s == null) return '#94a3b8'
-  if (s <= 2.0) return '#16a34a'
-  if (s <= 2.9) return '#059669'
-  if (s <= 3.5) return '#d97706'
-  if (s <= 4.5) return '#ea580c'
-  return '#dc2626'
-}
-
-// Horizontaler Notenbalken — intuitiv: kurz=gut, lang=schlecht
-function NotenBalken({ schnitt, label, sublabel }) {
-  const pct = schnitt != null ? ((schnitt - 1) / 5) * 100 : 0
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="w-32 shrink-0 text-sm font-medium text-slate-700 truncate">{label}</div>
-      <div className="flex-1 relative h-6 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: balkenFarbe(schnitt), minWidth: schnitt != null ? '2px' : 0 }}
-        />
-        <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold text-slate-700">
-          {schnitt?.toFixed(1) ?? '–'}
-        </span>
-      </div>
-      {sublabel && <div className="w-28 shrink-0 text-xs text-slate-400 truncate">{sublabel}</div>}
-    </div>
-  )
 }
 
 function Notenschluessel() {
@@ -83,9 +57,9 @@ export default function KlassenDetail() {
   }, [id, klasseId])
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
-      <div className="text-slate-400">Wird geladen…</div>
-    </div>
+    <Layout title="Klasse" backTo={{ to: `/schule/${id}/klassen`, label: 'Zurück zur Klassenübersicht' }}>
+      <main className="max-w-screen-xl mx-auto px-6 py-24 text-center text-slate-400">Wird geladen…</main>
+    </Layout>
   )
 
   const { bezeichnung, klassen_schnitt, anzahl_schueler, klassenlehrer,
@@ -105,43 +79,26 @@ export default function KlassenDetail() {
   const sortiertSchueler = [...schueler].sort((a, b) => a.gesamt_schnitt - b.gesamt_schnitt)
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
-      <div style={{ background: '#00303F' }} className="py-2 px-6">
-        <div className="max-w-screen-xl mx-auto">
-          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
-        </div>
-      </div>
-
-      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4">
-          <button onClick={() => navigate(`/schule/${id}/klassen`)}
-            className="flex items-center gap-2 text-sm text-white/70 hover:text-white mb-3 transition-colors">
-            <ArrowLeft size={16} /> Zurück zur Klassenübersicht
-          </button>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-white">Klasse {bezeichnung}</h1>
-              <p className="text-xs text-white/60 mt-0.5">
-                {schuleName} · {anzahl_schueler} Schüler · KL: {klassenlehrer} · Gesamtschnitt: {klassen_schnitt?.toFixed(2)}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {[['schueler', 'Schüler'], ['faecher', 'Fächer'], ['lehrer', 'Lehrer']].map(([key, label]) => (
-                <button key={key} onClick={() => setAnsicht(key)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                    ansicht === key ? 'bg-white text-[#006892]' : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <Layout
+      title={`Klasse ${bezeichnung}`}
+      subtitle={`${schuleName} · ${anzahl_schueler} Schüler · KL: ${klassenlehrer} · Gesamtschnitt: ${klassen_schnitt?.toFixed(2)}`}
+      backTo={{ to: `/schule/${id}/klassen`, label: 'Zurück zur Klassenübersicht' }}
+    >
       <main className="max-w-screen-xl mx-auto px-6 py-6">
 
-        <div className="mb-5">
+        {/* Ansicht-Umschalter + Notenschlüssel */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm" role="tablist">
+            {[['schueler', 'Schüler'], ['faecher', 'Fächer'], ['lehrer', 'Lehrer']].map(([key, label]) => (
+              <button key={key} onClick={() => setAnsicht(key)}
+                role="tab" aria-selected={ansicht === key}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  ansicht === key ? 'bg-[#006892] text-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
           <Notenschluessel />
         </div>
 
@@ -166,11 +123,8 @@ export default function KlassenDetail() {
                     )}
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex items-center gap-1 w-40">
-                      <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full"
-                          style={{ width: `${((s.gesamt_schnitt - 1) / 5) * 100}%`, background: balkenFarbe(s.gesamt_schnitt) }} />
-                      </div>
+                    <div className="hidden sm:block w-40">
+                      <NotenSkalaKompakt schnitt={s.gesamt_schnitt} />
                     </div>
                     <span className={`text-base font-bold w-10 text-right ${schnittFarbe(s.gesamt_schnitt)}`}>
                       {s.gesamt_schnitt?.toFixed(2)}
@@ -217,18 +171,15 @@ export default function KlassenDetail() {
         {/* ── Fächer-Ansicht ── */}
         {ansicht === 'faecher' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                Klassenschnitt pro Fach
-              </h2>
-              <span className="text-xs text-slate-400">Balken: kurz = gut · lang = schlecht</span>
-            </div>
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
+              Klassenschnitt pro Fach
+            </h2>
             <div className="divide-y divide-slate-50 mt-4">
               {faecher.map(fach => {
                 const fs = fach_schnitte?.[fach]
                 const l = lehrer_by_id[fs?.lehrer_id] ?? {}
                 return (
-                  <NotenBalken
+                  <NotenSkala
                     key={fach}
                     label={fach}
                     schnitt={fs?.klassen_schnitt}
@@ -267,7 +218,7 @@ export default function KlassenDetail() {
                   </div>
                   <div className="divide-y divide-slate-50">
                     {lf.map(f => (
-                      <NotenBalken key={f.fach} label={f.fach} schnitt={f.schnitt} />
+                      <NotenSkala key={f.fach} label={f.fach} schnitt={f.schnitt} />
                     ))}
                   </div>
                 </div>
@@ -276,6 +227,6 @@ export default function KlassenDetail() {
           </div>
         )}
       </main>
-    </div>
+    </Layout>
   )
 }

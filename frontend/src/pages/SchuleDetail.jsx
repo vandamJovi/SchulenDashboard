@@ -4,8 +4,10 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
-import { ArrowLeft, MapPin, Phone, Mail, Globe, Users, Building2, ChevronDown, ChevronUp, GraduationCap } from 'lucide-react'
+import { MapPin, Phone, Mail, Globe, Users, Building2, ChevronDown, ChevronUp, GraduationCap, AlertTriangle } from 'lucide-react'
+import Layout from '../components/Layout'
 import { AmpelRow } from '../components/Ampel'
+import { AMPEL_INFO } from '../lib/ampelInfo'
 
 function InfoItem({ icon: Icon, label, value }) {
   if (!value) return null
@@ -25,22 +27,31 @@ export default function SchuleDetail() {
   const navigate = useNavigate()
   const [schule, setSchule] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [fehler, setFehler] = useState(false)
   const [rohdatenOffen, setRohdatenOffen] = useState(false)
 
   useEffect(() => {
     fetch(`/api/schulen/${id}`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(d => { setSchule(d); setLoading(false) })
+      .catch(() => { setFehler(true); setLoading(false) })
   }, [id])
 
-  if (loading) {
+  if (loading || fehler) {
     return (
-      <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
-        <div className="text-center">
-          <img src="/logo.svg" alt="EKMD Logo" className="h-12 mx-auto mb-6 opacity-60" />
-          <div className="text-slate-400">Wird geladen…</div>
-        </div>
-      </div>
+      <Layout title="Schuldetails" backTo={{ to: '/', label: 'Zurück zum Dashboard' }}>
+        <main className="max-w-screen-xl mx-auto px-6 py-24 text-center">
+          {fehler ? (
+            <>
+              <AlertTriangle size={40} className="mx-auto text-amber-400 mb-4" />
+              <h2 className="text-lg font-semibold text-slate-700 mb-1">Schule konnte nicht geladen werden</h2>
+              <p className="text-sm text-slate-400">Bitte zum Dashboard zurückkehren und erneut versuchen.</p>
+            </>
+          ) : (
+            <div className="text-slate-400">Wird geladen…</div>
+          )}
+        </main>
+      </Layout>
     )
   }
 
@@ -68,53 +79,31 @@ export default function SchuleDetail() {
     : []
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
-      {/* Top-Banner */}
-      <div style={{ background: '#00303F' }} className="py-2 px-6">
-        <div className="max-w-screen-xl mx-auto">
-          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
-        </div>
-      </div>
-
-      {/* Header */}
-      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-sm text-white/70 hover:text-white mb-3 transition-colors"
-          >
-            <ArrowLeft size={16} /> Zurück zum Dashboard
-          </button>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="bg-white rounded-lg px-2 py-1.5 shadow-sm shrink-0">
-                <img src="/logo.svg" alt="EKMD Logo" className="h-8 w-auto" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white leading-tight">{schule.name}</h1>
-                <div className="flex items-center gap-1 text-sm text-white/60 mt-0.5">
-                  <MapPin size={13} />
-                  <span>{schule.details?.strasse}, {schule.plz} {schule.ort} · {schule.bundesland}</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {schule.stiftung === 'ESM' && (
-                <button
-                  onClick={() => navigate(`/schule/${id}/klassen`)}
-                  className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
-                >
-                  <GraduationCap size={16} /> Klassen & Noten
-                </button>
-              )}
-              <span className="text-sm font-bold bg-white/20 text-white rounded-lg px-3 py-1">
-                {schule.stiftung}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <Layout
+      title={schule.name}
+      subtitle={
+        <span className="inline-flex items-center gap-1">
+          <MapPin size={12} />
+          {schule.details?.strasse}, {schule.plz} {schule.ort} · {schule.bundesland}
+        </span>
+      }
+      backTo={{ to: '/', label: 'Zurück zum Dashboard' }}
+      actions={
+        <>
+          {schule.stiftung === 'ESM' && (
+            <button
+              onClick={() => navigate(`/schule/${id}/klassen`)}
+              className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
+            >
+              <GraduationCap size={16} /> <span className="hidden md:inline">Klassen & Noten</span>
+            </button>
+          )}
+          <span className="text-sm font-bold bg-white/20 text-white rounded-lg px-3 py-1">
+            {schule.stiftung}
+          </span>
+        </>
+      }
+    >
       <main className="max-w-screen-xl mx-auto px-6 py-6">
 
         {/* Hero-Banner (erstes Foto) */}
@@ -154,8 +143,10 @@ export default function SchuleDetail() {
                   label={ampelLabels[key]}
                   status={status}
                   value={ampelValues[key]}
+                  info={AMPEL_INFO[key]}
                 />
               ))}
+              <p className="text-xs text-slate-400 mt-2">Schwellwerte per Mauszeiger auf einer Zeile einsehbar.</p>
             </div>
 
             {/* Stammdaten */}
@@ -170,26 +161,32 @@ export default function SchuleDetail() {
               )}
             </div>
 
-            {/* Gebäude & Personal */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Gebäude & Personal</h2>
-              <div className="space-y-2 text-sm">
-                {[
-                  ['Klassenräume', schule.details?.anzahl_klassenraeume],
-                  ['Differenzierungsräume', schule.details?.anzahl_diff_raeume],
-                  ['Horträume', schule.details?.anzahl_hort_raeume],
-                  ['Lerngruppen', schule.details?.lerngruppenzahl],
-                  ['Mitarbeiter', schule.details?.anzahl_personen],
-                  ['VBE (Vollzeitäquivalente)', schule.details?.anzahl_vbe],
-                  ['Fortbildungstage', schule.details?.fortbildung_tage],
-                ].filter(([, v]) => v !== null && v !== undefined).map(([label, val]) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-slate-400">{label}</span>
-                    <span className="font-semibold text-slate-700">{val}</span>
+            {/* Gebäude & Personal — nur anzeigen, wenn es nennenswerte Daten gibt */}
+            {(() => {
+              const eintraege = [
+                ['Klassenräume', schule.details?.anzahl_klassenraeume],
+                ['Differenzierungsräume', schule.details?.anzahl_diff_raeume],
+                ['Horträume', schule.details?.anzahl_hort_raeume],
+                ['Lerngruppen', schule.details?.lerngruppenzahl],
+                ['Mitarbeiter', schule.details?.anzahl_personen],
+                ['VBE (Vollzeitäquivalente)', schule.details?.anzahl_vbe],
+                ['Fortbildungstage', schule.details?.fortbildung_tage],
+              ].filter(([, v]) => v !== null && v !== undefined && v !== 0)
+              if (eintraege.length === 0) return null
+              return (
+                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                  <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Gebäude & Personal</h2>
+                  <div className="space-y-2 text-sm">
+                    {eintraege.map(([label, val]) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-slate-400">{label}</span>
+                        <span className="font-semibold text-slate-700 tnum">{val}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Rechte Spalte: Charts */}
@@ -441,6 +438,6 @@ export default function SchuleDetail() {
         )}
 
       </main>
-    </div>
+    </Layout>
   )
 }

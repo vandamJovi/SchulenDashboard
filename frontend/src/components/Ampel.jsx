@@ -9,27 +9,37 @@ export function AmpelDot({ status, size = 'md' }) {
   const c = COLORS[status] ?? COLORS.gray
   const sz = size === 'sm' ? 'w-3 h-3' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4'
   return (
-    <span className={`inline-block rounded-full ring-2 ${sz} ${c.dot} ${c.ring}`} />
+    <span
+      className={`inline-block rounded-full ring-2 ${sz} ${c.dot} ${c.ring}`}
+      role="img"
+      aria-label={`Status: ${c.text}`}
+    />
   )
 }
 
-export function AmpelBadge({ status, label }) {
+export function AmpelBadge({ status, label, info }) {
   const c = COLORS[status] ?? COLORS.gray
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${c.label}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 text-xs font-medium ${c.label} ${info ? 'cursor-help' : ''}`}
+      title={info}
+    >
       <AmpelDot status={status} size="sm" />
       {label ?? c.text}
     </span>
   )
 }
 
-export function AmpelRow({ label, status, value }) {
+export function AmpelRow({ label, status, value, info }) {
   const c = COLORS[status] ?? COLORS.gray
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+    <div
+      className={`flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0 ${info ? 'cursor-help' : ''}`}
+      title={info}
+    >
       <span className="text-sm text-slate-500">{label}</span>
       <span className={`flex items-center gap-2 text-sm font-semibold ${c.label}`}>
-        {value && <span className="text-slate-700 font-normal">{value}</span>}
+        {value && <span className="text-slate-700 font-normal tnum">{value}</span>}
         <AmpelDot status={status} size="sm" />
       </span>
     </div>

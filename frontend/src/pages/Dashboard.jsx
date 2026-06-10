@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { School, Users, AlertTriangle, CheckCircle, Map } from 'lucide-react'
+import { School, Users, AlertTriangle, CheckCircle, SearchX, RefreshCw } from 'lucide-react'
+import Layout from '../components/Layout'
 import KpiCard from '../components/KpiCard'
 import FilterBar from '../components/FilterBar'
 import SchulCard from '../components/SchulCard'
@@ -16,6 +17,28 @@ function gesamtAmpel(ampel) {
   return 'gray'
 }
 
+const LEGENDE = [
+  { key: 'red',    label: 'Kritisch',    dot: 'bg-red-500',    aktivKlasse: 'bg-red-50 border-red-300 text-red-700' },
+  { key: 'yellow', label: 'Mittel',      dot: 'bg-yellow-400', aktivKlasse: 'bg-yellow-50 border-yellow-300 text-yellow-700' },
+  { key: 'green',  label: 'Gut',         dot: 'bg-green-500',  aktivKlasse: 'bg-green-50 border-green-300 text-green-700' },
+  { key: 'gray',   label: 'Keine Daten', dot: 'bg-slate-300',  aktivKlasse: 'bg-slate-100 border-slate-300 text-slate-600' },
+]
+
+function SkeletonDashboard() {
+  return (
+    <main className="max-w-screen-xl mx-auto px-6 py-6 animate-pulse" aria-busy="true" aria-label="Daten werden geladen">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-xl bg-slate-200/70" />)}
+      </div>
+      <div className="h-14 rounded-2xl bg-slate-200/70 mb-6" />
+      <div className="h-16 rounded-xl bg-slate-200/70 mb-6" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {[...Array(8)].map((_, i) => <div key={i} className="h-56 rounded-xl bg-slate-200/70" />)}
+      </div>
+    </main>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [schulen, setSchulen] = useState([])
@@ -23,6 +46,7 @@ export default function Dashboard() {
   const [filterOptions, setFilterOptions] = useState({})
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [loading, setLoading] = useState(true)
+  const [fehler, setFehler] = useState(false)
   const [meta, setMeta] = useState(null)
   const [sortierung, setSortierung] = useState('daten')
   const [aktivesPanel, setAktivesPanel] = useState(null)
@@ -37,20 +61,31 @@ export default function Dashboard() {
     })
   }
 
-  useEffect(() => {
+  const datenAbrufen = useCallback(() => {
     Promise.all([
-      fetch('/api/schulen', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/uebersicht', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/filter-options', { credentials: 'include' }).then(r => r.json()),
-      fetch('/api/meta', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/schulen', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error(); return r.json() }),
+      fetch('/api/uebersicht', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error(); return r.json() }),
+      fetch('/api/filter-options', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error(); return r.json() }),
+      fetch('/api/meta', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error(); return r.json() }),
     ]).then(([s, u, fo, m]) => {
       setSchulen(s)
       setUebersicht(u)
       setFilterOptions(fo)
       setMeta(m)
       setLoading(false)
+    }).catch(() => {
+      setFehler(true)
+      setLoading(false)
     })
   }, [])
+
+  useEffect(() => { datenAbrufen() }, [datenAbrufen])
+
+  function erneutVersuchen() {
+    setLoading(true)
+    setFehler(false)
+    datenAbrufen()
+  }
 
   const filtered = schulen
     .filter(s => {
@@ -58,7 +93,10 @@ export default function Dashboard() {
       if (filters.bundesland && s.bundesland !== filters.bundesland) return false
       if (filters.schultyp && !s.schultypen.includes(filters.schultyp)) return false
       if (filters.ampel && gesamtAmpel(s.ampel) !== filters.ampel) return false
-      if (filters.suche && !s.name.toLowerCase().includes(filters.suche.toLowerCase())) return false
+      if (filters.suche) {
+        const q = filters.suche.toLowerCase()
+        if (!s.name.toLowerCase().includes(q) && !(s.ort ?? '').toLowerCase().includes(q)) return false
+      }
       return true
     })
     .sort((a, b) => {
@@ -74,61 +112,30 @@ export default function Dashboard() {
       }
     })
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
-        <div className="text-center">
-          <img src="/logo.svg" alt="EKMD Logo" className="h-12 mx-auto mb-6 opacity-60" />
-          <div className="text-slate-400">Daten werden geladen…</div>
-        </div>
-      </div>
-    )
-  }
-
   const ampelV = uebersicht?.ampel_verteilung ?? {}
+  const headerBanner = meta ? `Datenstand: ${new Date(meta.fetched_at).toLocaleDateString('de-DE')}` : null
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
-
-      {/* Top-Banner */}
-      <div style={{ background: '#00303F' }} className="py-2 px-6">
-        <div className="max-w-screen-xl mx-auto flex items-center justify-between">
-          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
-          {meta && (
-            <span className="text-xs text-white/40">
-              Datenstand: {new Date(meta.fetched_at).toLocaleDateString('de-DE')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Header */}
-      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="bg-white rounded-lg px-3 py-2 shadow-sm">
-              <img src="/logo.svg" alt="EKMD Logo" className="h-10 w-auto" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white leading-tight">Schulen-Dashboard</h1>
-              <p className="text-xs text-white/60 mt-0.5">Kennzahlen & Ampelstatus aller Schulen</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/karte')}
-              className="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
-            >
-              <Map size={16} /> Karte
-            </button>
-            <div className="text-right text-xs text-white/50 hidden sm:block">
-              <div>{uebersicht?.gesamt_schulen} Schulen</div>
-              <div>{uebersicht?.gesamt_schueler?.toLocaleString('de-DE')} Schüler</div>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <Layout
+      title="Schulen-Dashboard"
+      subtitle="Kennzahlen & Ampelstatus aller Schulen"
+      banner={headerBanner}
+    >
+      {fehler ? (
+        <main className="max-w-screen-xl mx-auto px-6 py-24 text-center">
+          <AlertTriangle size={40} className="mx-auto text-amber-400 mb-4" />
+          <h2 className="text-lg font-semibold text-slate-700 mb-1">Daten konnten nicht geladen werden</h2>
+          <p className="text-sm text-slate-400 mb-6">Bitte prüfen Sie, ob das Backend läuft, und versuchen Sie es erneut.</p>
+          <button
+            onClick={erneutVersuchen}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-white rounded-lg px-4 py-2.5 bg-[#006892] hover:bg-[#00547a] transition-colors"
+          >
+            <RefreshCw size={15} /> Erneut versuchen
+          </button>
+        </main>
+      ) : loading ? (
+        <SkeletonDashboard />
+      ) : (
       <main className="max-w-screen-xl mx-auto px-6 py-6">
 
         {/* KPI-Kacheln */}
@@ -182,7 +189,7 @@ export default function Dashboard() {
                     .map(([jg, anzahl]) => (
                       <div key={jg} className="bg-slate-50 rounded-lg p-3 text-center">
                         <div className="text-xs text-slate-400 mb-1">Jahrgang {jg}</div>
-                        <div className="text-xl font-bold text-slate-800">{anzahl.toLocaleString('de-DE')}</div>
+                        <div className="text-xl font-bold text-slate-800 tnum">{anzahl.toLocaleString('de-DE')}</div>
                       </div>
                     ))}
                 </div>
@@ -199,7 +206,7 @@ export default function Dashboard() {
                   ].map(([label, val]) => (
                     <div key={label} className="bg-amber-50 rounded-lg p-3 text-center">
                       <div className="text-xs text-amber-600 mb-1">{label}</div>
-                      <div className="text-xl font-bold text-slate-800">{(val ?? 0).toLocaleString('de-DE')}</div>
+                      <div className="text-xl font-bold text-slate-800 tnum">{(val ?? 0).toLocaleString('de-DE')}</div>
                     </div>
                   ))}
                 </div>
@@ -243,26 +250,30 @@ export default function Dashboard() {
           <ChatWidget />
         </div>
 
-        {/* Ampel-Legende */}
-        <div ref={schulenRef} className="flex flex-wrap gap-4 mb-5 items-center">
-          {[
-            { label: `${ampelV.red ?? 0} Kritisch`,    color: 'bg-red-500'    },
-            { label: `${ampelV.yellow ?? 0} Mittel`,   color: 'bg-yellow-400' },
-            { label: `${ampelV.green ?? 0} Gut`,       color: 'bg-green-500'  },
-            { label: `${ampelV.gray ?? 0} Keine Daten`, color: 'bg-slate-300' },
-          ].map(({ label, color }) => (
-            <span key={label} className="flex items-center gap-1.5 text-sm text-slate-600">
-              <span className={`w-3 h-3 rounded-full ${color}`} />
-              {label}
+        {/* Filterleiste mit klickbarer Ampel-Legende */}
+        <div ref={schulenRef} className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm space-y-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            {LEGENDE.map(({ key, label, dot, aktivKlasse }) => {
+              const aktiv = filters.ampel === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setFilters(f => ({ ...f, ampel: aktiv ? '' : key }))}
+                  aria-pressed={aktiv}
+                  title={aktiv ? 'Filter entfernen' : `Nur Schulen mit Status „${label}“ anzeigen`}
+                  className={`flex items-center gap-1.5 text-sm rounded-full border px-3 py-1 transition-colors ${
+                    aktiv ? aktivKlasse : 'border-transparent text-slate-600 hover:bg-slate-50 hover:border-slate-200'
+                  }`}
+                >
+                  <span className={`w-3 h-3 rounded-full ${dot}`} />
+                  {ampelV[key] ?? 0} {label}
+                </button>
+              )
+            })}
+            <span className="text-xs text-slate-400 ml-1" title="Die schlechteste Einzelkennzahl bestimmt den Gesamtstatus einer Schule.">
+              Gesamtstatus = schlechtester Einzelwert · Klick filtert
             </span>
-          ))}
-          <span className="text-sm text-slate-400 ml-1">
-            · Gesamtstatus = schlechtester Einzelwert
-          </span>
-        </div>
-
-        {/* Filterleiste */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm">
+          </div>
           <FilterBar filters={filters} options={filterOptions} onChange={setFilters} />
         </div>
 
@@ -275,19 +286,20 @@ export default function Dashboard() {
           <div className="flex items-center gap-1.5 text-sm">
             <span className="text-slate-400 mr-1">Sortierung:</span>
             {[
+              { key: 'daten',      label: 'Name' },
               { key: 'schueler',   label: 'Schülerzahl' },
               { key: 'auslastung', label: 'Auslastung' },
-              { key: 'prognose',   label: 'Anmeldeerfüllung' },
+              { key: 'prognose',   label: 'Anmeldungen' },
             ].map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setSortierung(s => s === key ? 'daten' : key)}
+                onClick={() => setSortierung(key)}
+                aria-pressed={sortierung === key}
                 className={`px-3 py-1 rounded-lg font-medium transition-colors ${
                   sortierung === key
-                    ? 'text-white'
+                    ? 'text-white bg-[#006892]'
                     : 'text-slate-500 bg-white border border-slate-200 hover:border-slate-300'
                 }`}
-                style={sortierung === key ? { background: '#006892' } : {}}
               >
                 {label}
               </button>
@@ -301,7 +313,17 @@ export default function Dashboard() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-slate-400">Keine Schulen gefunden.</div>
+          <div className="text-center py-16">
+            <SearchX size={36} className="mx-auto text-slate-300 mb-3" />
+            <p className="text-slate-500 font-medium mb-1">Keine Schulen gefunden</p>
+            <p className="text-sm text-slate-400 mb-4">Die aktuelle Filter-Kombination liefert kein Ergebnis.</p>
+            <button
+              onClick={() => setFilters(EMPTY_FILTERS)}
+              className="text-sm font-semibold text-[#006892] hover:text-[#00303F] underline underline-offset-2"
+            >
+              Filter zurücksetzen
+            </button>
+          </div>
         )}
 
         {/* Footer */}
@@ -310,6 +332,7 @@ export default function Dashboard() {
           {meta && new Date(meta.fetched_at).toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' })}
         </footer>
       </main>
-    </div>
+      )}
+    </Layout>
   )
 }

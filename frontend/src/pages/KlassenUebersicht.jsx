@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Users } from 'lucide-react'
+import { Users } from 'lucide-react'
+import Layout from '../components/Layout'
+import { NotenSkalaKompakt } from '../components/NotenSkala'
 
 function schnittFarbe(schnitt) {
   if (schnitt === null || schnitt === undefined) return 'text-slate-400'
@@ -16,15 +18,6 @@ function schnittBg(schnitt) {
   if (schnitt <= 3.5) return 'bg-yellow-50 border-yellow-100'
   if (schnitt <= 4.5) return 'bg-orange-50 border-orange-100'
   return 'bg-red-50 border-red-100'
-}
-
-function balkenFarbe(s) {
-  if (s == null) return '#94a3b8'
-  if (s <= 2.0) return '#16a34a'
-  if (s <= 2.9) return '#059669'
-  if (s <= 3.5) return '#d97706'
-  if (s <= 4.5) return '#ea580c'
-  return '#dc2626'
 }
 
 function SchnittBadge({ wert }) {
@@ -56,9 +49,9 @@ export default function KlassenUebersicht() {
   }, [id])
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
-      <div className="text-slate-400">Wird geladen…</div>
-    </div>
+    <Layout title="Klassen & Noten" backTo={{ to: `/schule/${id}`, label: 'Zurück zur Schule' }}>
+      <main className="max-w-screen-xl mx-auto px-6 py-24 text-center text-slate-400">Wird geladen…</main>
+    </Layout>
   )
 
   const { klassen, lehrer, faecher } = daten
@@ -97,39 +90,25 @@ export default function KlassenUebersicht() {
   })
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
-      <div style={{ background: '#00303F' }} className="py-2 px-6">
-        <div className="max-w-screen-xl mx-auto">
-          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
-        </div>
-      </div>
-
-      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4">
-          <button onClick={() => navigate(`/schule/${id}`)}
-            className="flex items-center gap-2 text-sm text-white/70 hover:text-white mb-3 transition-colors">
-            <ArrowLeft size={16} /> Zurück zur Schule
-          </button>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-white">{schuleName}</h1>
-              <p className="text-xs text-white/60 mt-0.5">{klassen.length} Klassen · {klassen.reduce((s, k) => s + k.anzahl_schueler, 0)} Schüler (Mock-Daten)</p>
-            </div>
-            <div className="flex gap-2">
-              {[['klassen', 'Klassen'], ['lehrer', 'Lehrer']].map(([key, label]) => (
-                <button key={key} onClick={() => setAnsicht(key)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                    ansicht === key ? 'bg-white text-[#006892]' : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <Layout
+      title={schuleName}
+      subtitle={`${klassen.length} Klassen · ${klassen.reduce((s, k) => s + k.anzahl_schueler, 0)} Schüler (Mock-Daten)`}
+      backTo={{ to: `/schule/${id}`, label: 'Zurück zur Schule' }}
+    >
       <main className="max-w-screen-xl mx-auto px-6 py-6">
+
+        {/* Ansicht-Umschalter */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm w-fit mb-5" role="tablist">
+          {[['klassen', 'Klassen'], ['lehrer', 'Lehrer']].map(([key, label]) => (
+            <button key={key} onClick={() => setAnsicht(key)}
+              role="tab" aria-selected={ansicht === key}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                ansicht === key ? 'bg-[#006892] text-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
 
         {ansicht === 'klassen' && (
           <>
@@ -155,7 +134,6 @@ export default function KlassenUebersicht() {
                   .sort((a, b) => a[1].klassen_schnitt - b[1].klassen_schnitt)
                 const bestesFach = fachListe[0]
                 const schlechtestesFach = fachListe[fachListe.length - 1]
-                const balkenPct = kl.klassen_schnitt != null ? ((kl.klassen_schnitt - 1) / 5) * 100 : 0
                 return (
                   <button key={kl.id} onClick={() => navigate(`/schule/${id}/klassen/${kl.id}`)}
                     className={`text-left rounded-xl border p-5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all ${schnittBg(kl.klassen_schnitt)}`}>
@@ -170,11 +148,8 @@ export default function KlassenUebersicht() {
                       </div>
                       <div className="text-slate-400 truncate">KL: {kl.klassenlehrer}</div>
                     </div>
-                    {/* Notenbalken */}
-                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-3">
-                      <div className="h-full rounded-full transition-all"
-                        style={{ width: `${balkenPct}%`, background: balkenFarbe(kl.klassen_schnitt) }} />
-                    </div>
+                    {/* Noten-Skala 1–6 mit Marker */}
+                    <NotenSkalaKompakt schnitt={kl.klassen_schnitt} className="mb-3" />
                     {/* Bestes & schlechtestes Fach */}
                     <div className="flex justify-between text-xs">
                       {bestesFach && (
@@ -235,6 +210,6 @@ export default function KlassenUebersicht() {
           </>
         )}
       </main>
-    </div>
+    </Layout>
   )
 }

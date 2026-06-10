@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AmpelDot, AmpelBadge } from './Ampel'
+import { AMPEL_INFO } from '../lib/ampelInfo'
 import { MapPin, Users, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 function GesamtAmpel(ampel) {
@@ -25,13 +26,13 @@ const BORDER = {
 }
 
 export default function SchulCard({ schule }) {
-  const navigate = useNavigate()
   const gesamt = GesamtAmpel(schule.ampel)
+  const yoy = schule.yoy_change_pct
 
   return (
-    <div
-      onClick={() => navigate(`/schule/${schule.id}`)}
-      className={`bg-white rounded-xl border border-slate-200 border-l-4 ${BORDER[gesamt]}
+    <Link
+      to={`/schule/${schule.id}`}
+      className={`block bg-white rounded-xl border border-slate-200 border-l-4 ${BORDER[gesamt]}
         p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150`}
     >
       {/* Header */}
@@ -65,7 +66,7 @@ export default function SchulCard({ schule }) {
             <Users size={11} />
             <span>Schüler</span>
           </div>
-          <div className="font-bold text-[#00303F] text-lg">
+          <div className="font-bold text-[#00303F] text-lg tnum">
             {schule.gesamt_schueler?.toLocaleString('de-DE') ?? '–'}
           </div>
           {schule.aktuelles_schuljahr && (
@@ -74,16 +75,15 @@ export default function SchulCard({ schule }) {
         </div>
         <div className="bg-[#f5f8fa] rounded-lg p-2.5">
           <div className="flex items-center gap-1 text-xs text-slate-400 mb-0.5">
-            <YoyIcon pct={schule.yoy_change_pct} />
+            <YoyIcon pct={yoy} />
             <span>Entwicklung</span>
           </div>
-          <div className={`font-bold text-lg ${
-            schule.yoy_change_pct > 2  ? 'text-green-600' :
-            schule.yoy_change_pct < -2 ? 'text-red-600'   : 'text-yellow-600'
+          <div className={`font-bold text-lg tnum ${
+            yoy === null || yoy === undefined ? 'text-slate-400' :
+            yoy > 2  ? 'text-green-600' :
+            yoy < -2 ? 'text-red-600'   : 'text-yellow-600'
           }`}>
-            {schule.yoy_change_pct !== null && schule.yoy_change_pct !== undefined
-              ? `${schule.yoy_change_pct > 0 ? '+' : ''}${schule.yoy_change_pct}%`
-              : '–'}
+            {yoy !== null && yoy !== undefined ? `${yoy > 0 ? '+' : ''}${yoy}%` : '–'}
           </div>
           <div className="text-xs text-slate-400">ggü. Vorjahr</div>
         </div>
@@ -91,16 +91,16 @@ export default function SchulCard({ schule }) {
 
       {/* Ampel-Badges */}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        <AmpelBadge status={schule.ampel.auslastung} label={
+        <AmpelBadge status={schule.ampel.auslastung} info={AMPEL_INFO.auslastung} label={
           schule.auslastung_pct !== null ? `Auslastung ${schule.auslastung_pct}%` : 'Auslastung –'
         } />
-        <AmpelBadge status={schule.ampel.prognose} label={
-          schule.prognose_pct !== null ? `Prognose ${schule.prognose_pct}%` : 'Prognose –'
+        <AmpelBadge status={schule.ampel.prognose} info={AMPEL_INFO.prognose} label={
+          schule.prognose_pct !== null ? `Anmeldungen ${schule.prognose_pct}%` : 'Anmeldungen –'
         } />
-        <AmpelBadge status={schule.ampel.spg} label={
+        <AmpelBadge status={schule.ampel.spg} info={AMPEL_INFO.spg} label={
           schule.spg_quote_pct !== null ? `SPG ${schule.spg_quote_pct}%` : 'SPG –'
         } />
       </div>
-    </div>
+    </Link>
   )
 }

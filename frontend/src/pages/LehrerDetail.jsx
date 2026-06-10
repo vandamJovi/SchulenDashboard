@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Users, BookOpen, Calendar, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import Layout from '../components/Layout'
+import NotenSkala from '../components/NotenSkala'
+import { notenFarbe } from '../lib/noten'
 
 const SCHULJAHRE = ["2022/23", "2023/24", "2024/25"]
 
@@ -13,38 +16,6 @@ function schnittFarbe(s) {
   if (s <= 4.5) return 'text-orange-600'
   return 'text-red-600'
 }
-function schnittBg(s) {
-  if (s == null) return 'bg-slate-50 border-slate-200'
-  if (s <= 2.0) return 'bg-green-50 border-green-100'
-  if (s <= 2.9) return 'bg-emerald-50 border-emerald-100'
-  if (s <= 3.5) return 'bg-yellow-50 border-yellow-100'
-  if (s <= 4.5) return 'bg-orange-50 border-orange-100'
-  return 'bg-red-50 border-red-100'
-}
-function balkenFarbe(s) {
-  if (s == null) return '#94a3b8'
-  if (s <= 2.0) return '#16a34a'
-  if (s <= 2.9) return '#059669'
-  if (s <= 3.5) return '#d97706'
-  if (s <= 4.5) return '#ea580c'
-  return '#dc2626'
-}
-
-function NotenBalken({ label, schnitt }) {
-  const pct = schnitt != null ? ((schnitt - 1) / 5) * 100 : 0
-  return (
-    <div className="flex items-center gap-3 py-1.5">
-      <div className="w-28 shrink-0 text-sm text-slate-600 truncate">{label}</div>
-      <div className="flex-1 relative h-5 bg-slate-100 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: balkenFarbe(schnitt), minWidth: schnitt != null ? '2px' : 0 }} />
-        <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold text-slate-700">
-          {schnitt?.toFixed(2) ?? '–'}
-        </span>
-      </div>
-    </div>
-  )
-}
 
 function TrendIcon({ delta }) {
   if (delta == null) return <Minus size={14} className="text-slate-400" />
@@ -55,7 +26,6 @@ function TrendIcon({ delta }) {
 
 export default function LehrerDetail() {
   const { id, lehrerId } = useParams()
-  const navigate = useNavigate()
   const [daten, setDaten] = useState(null)
   const [loading, setLoading] = useState(true)
   const [schuleName, setSchuleName] = useState('')
@@ -74,15 +44,18 @@ export default function LehrerDetail() {
   }, [id, lehrerId])
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen" style={{ background: '#f5f8fa' }}>
-      <div className="text-slate-400">Wird geladen…</div>
-    </div>
+    <Layout title="Lehrkraft" backTo={{ to: `/schule/${id}/klassen`, label: 'Zurück zur Klassenübersicht' }}>
+      <main className="max-w-screen-xl mx-auto px-6 py-24 text-center text-slate-400">Wird geladen…</main>
+    </Layout>
   )
 
   const { lehrer, klassen } = daten
   const alleSchueler = klassen.flatMap(kl =>
     kl.schueler.map(s => ({ ...s, klasse: kl.bezeichnung, klasse_id: kl.id }))
   )
+
+  // Alle Fächer, die in irgendeinem Schuljahr vorkommen (nicht nur im ersten)
+  const alleHistFaecher = [...new Set(SCHULJAHRE.flatMap(sj => Object.keys(lehrer.historisch?.[sj] ?? {})))]
 
   // Historische Chart-Daten: pro Schuljahr Ø über alle Fächer
   const historischChartData = SCHULJAHRE.map(sj => {
@@ -111,41 +84,25 @@ export default function LehrerDetail() {
   const FACH_FARBEN = ['#006892', '#00303F', '#0085b8', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#6366f1']
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f8fa' }}>
-      <div style={{ background: '#00303F' }} className="py-2 px-6">
-        <div className="max-w-screen-xl mx-auto">
-          <span className="text-xs text-white/50">Evangelische Schulstiftung in Mitteldeutschland</span>
-        </div>
-      </div>
-
-      <header style={{ background: '#006892' }} className="shadow-md sticky top-0 z-10">
-        <div className="max-w-screen-xl mx-auto px-6 py-4">
-          <button onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-sm text-white/70 hover:text-white mb-3 transition-colors">
-            <ArrowLeft size={16} /> Zurück
-          </button>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-white">{lehrer.vorname} {lehrer.nachname}</h1>
-              <p className="text-xs text-white/60 mt-0.5">
-                {schuleName} · {lehrer.faecher?.join(', ')} · {lehrer.dienstjahre} Dienstjahre
-              </p>
-            </div>
-            <div className="flex gap-2 flex-wrap justify-end">
-              {[['uebersicht', 'Übersicht'], ['klassen', 'Klassen & Schüler'], ['verlauf', 'Historisch']].map(([key, label]) => (
-                <button key={key} onClick={() => setAnsicht(key)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-                    ansicht === key ? 'bg-white text-[#006892]' : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <Layout
+      title={`${lehrer.vorname} ${lehrer.nachname}`}
+      subtitle={`${schuleName} · ${lehrer.faecher?.join(', ')} · ${lehrer.dienstjahre} Dienstjahre`}
+      backTo={{ to: `/schule/${id}/klassen`, label: 'Zurück zur Klassenübersicht' }}
+    >
       <main className="max-w-screen-xl mx-auto px-6 py-6">
+
+        {/* Ansicht-Umschalter */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm w-fit mb-6" role="tablist">
+          {[['uebersicht', 'Übersicht'], ['klassen', 'Klassen & Schüler'], ['verlauf', 'Historisch']].map(([key, label]) => (
+            <button key={key} onClick={() => setAnsicht(key)}
+              role="tab" aria-selected={ansicht === key}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                ansicht === key ? 'bg-[#006892] text-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* ── Übersicht ── */}
         {ansicht === 'uebersicht' && (
@@ -154,29 +111,26 @@ export default function LehrerDetail() {
             {/* KPI-Kacheln */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: 'Klassen gesamt', value: klassen.length, icon: BookOpen, color: '#006892' },
-                { label: 'Schüler gesamt', value: alleSchueler.length, icon: Users, color: '#00303F' },
-                { label: 'Ø Notenschnitt', value: gesamtSchnittAktuell?.toFixed(2) ?? '–', icon: null, color: balkenFarbe(gesamtSchnittAktuell) },
-                { label: 'Verbesserungsrate', value: `${verbesserungsrate}%`, icon: TrendingUp, color: verbesserungsrate >= 50 ? '#16a34a' : '#d97706' },
-              ].map(({ label, value, icon: Icon, color }) => (
+                { label: 'Klassen gesamt', value: klassen.length, color: '#006892' },
+                { label: 'Schüler gesamt', value: alleSchueler.length, color: '#00303F' },
+                { label: 'Ø Notenschnitt', value: gesamtSchnittAktuell?.toFixed(2) ?? '–', color: notenFarbe(gesamtSchnittAktuell) },
+                { label: 'Verbesserungsrate', value: `${verbesserungsrate}%`, color: verbesserungsrate >= 50 ? '#16a34a' : '#d97706' },
+              ].map(({ label, value, color }) => (
                 <div key={label} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                   <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">{label}</p>
-                  <p className="text-2xl font-bold" style={{ color }}>{value}</p>
+                  <p className="text-2xl font-bold tnum" style={{ color }}>{value}</p>
                 </div>
               ))}
             </div>
 
             {/* Aktuelle Fachschnitte */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                  Aktuelle Fachschnitte (SJ 2024/25)
-                </h2>
-                <span className="text-xs text-slate-400">kurz = gut · lang = schlecht</span>
-              </div>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+                Aktuelle Fachschnitte (SJ 2024/25)
+              </h2>
               <div className="divide-y divide-slate-50">
                 {Object.entries(lehrer.aktuell_schnitte ?? {}).sort((a, b) => a[1] - b[1]).map(([fach, schnitt]) => (
-                  <NotenBalken key={fach} label={fach} schnitt={schnitt} />
+                  <NotenSkala key={fach} label={fach} schnitt={schnitt} />
                 ))}
               </div>
             </div>
@@ -264,7 +218,7 @@ export default function LehrerDetail() {
                       <div className="mb-4">
                         <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Meine Fächer in dieser Klasse</p>
                         {Object.entries(kl.fach_schnitte).map(([fach, schnitt]) => (
-                          <NotenBalken key={fach} label={fach} schnitt={schnitt} />
+                          <NotenSkala key={fach} label={fach} schnitt={schnitt} />
                         ))}
                       </div>
 
@@ -345,10 +299,10 @@ export default function LehrerDetail() {
                     label={{ value: '1=sehr gut', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
                   <Tooltip formatter={(v) => v?.toFixed(2)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {Object.keys(lehrer.historisch?.[SCHULJAHRE[0]] ?? {}).map((fach, i) => (
+                  {alleHistFaecher.map((fach, i) => (
                     <Line key={fach} type="monotone" dataKey={fach}
                       stroke={FACH_FARBEN[i % FACH_FARBEN.length]}
-                      strokeWidth={2} dot={{ r: 4 }} />
+                      strokeWidth={2} dot={{ r: 4 }} connectNulls />
                   ))}
                   <Line type="monotone" dataKey="Gesamt" name="Ø Gesamt"
                     stroke="#1e293b" strokeWidth={3} strokeDasharray="6 3" dot={{ r: 5 }} />
@@ -373,7 +327,7 @@ export default function LehrerDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.keys(lehrer.historisch?.[SCHULJAHRE[0]] ?? {}).map((fach, i) => {
+                    {alleHistFaecher.map((fach, i) => {
                       const werte = SCHULJAHRE.map(sj => lehrer.historisch?.[sj]?.[fach] ?? null)
                       const erster = werte.find(v => v != null)
                       const letzter = [...werte].reverse().find(v => v != null)
@@ -404,6 +358,6 @@ export default function LehrerDetail() {
           </div>
         )}
       </main>
-    </div>
+    </Layout>
   )
 }
